@@ -1,0 +1,6 @@
+{
+  "name": "AGECO Admin Panel",
+  "description": "Enterprise administration platform for AGECO Digital Platform (ADP) managing electrical, automation, and project solutions catalogue, content, enquiries, and systems.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
