@@ -3,19 +3,16 @@ import {
   Building2,
   Lock,
   Mail,
-  ShieldCheck,
   AlertCircle,
-  CheckCircle2,
   Cpu,
   ArrowRight,
 } from 'lucide-react';
-import { useAuth, DEMO_CREDENTIALS } from '../../context/AuthContext.tsx';
-import { UserRole } from '../../types/index.ts';
+import { useAuth } from '../../context/AuthContext.tsx';
 
 export const LoginView: React.FC = () => {
   const { login } = useAuth();
-  const [email, setEmail] = useState('superadmin@ageco.com');
-  const [password, setPassword] = useState('AgecoPassword2026!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -33,15 +30,6 @@ export const LoginView: React.FC = () => {
       setError(err.message || 'An unexpected connection error occurred.');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const selectPersona = (role: UserRole) => {
-    const creds = DEMO_CREDENTIALS[role];
-    if (creds) {
-      setEmail(creds.email);
-      setPassword('AgecoPassword2026!');
-      setError(null);
     }
   };
 
@@ -147,43 +135,6 @@ export const LoginView: React.FC = () => {
               )}
             </button>
           </form>
-
-          {/* Quick Role Tester Selector */}
-          <div className="mt-6 border-t border-slate-800 pt-5">
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />
-                Select Role Persona for Verification:
-              </span>
-              <span className="text-[10px] text-slate-500 font-mono">5 Locked Roles</span>
-            </div>
-            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-              {(Object.keys(DEMO_CREDENTIALS) as UserRole[]).map((role) => {
-                const cred = DEMO_CREDENTIALS[role];
-                const isCurrent = email === cred.email;
-                return (
-                  <button
-                    key={role}
-                    type="button"
-                    onClick={() => selectPersona(role)}
-                    className={`flex items-center justify-between rounded border p-2 text-left text-xs transition ${
-                      isCurrent
-                        ? 'border-amber-500/50 bg-amber-500/10 text-amber-300'
-                        : 'border-slate-800 bg-slate-900/50 text-slate-400 hover:border-slate-700 hover:text-slate-200'
-                    }`}
-                  >
-                    <div>
-                      <div className="font-mono text-[10px] font-semibold">{role}</div>
-                      <div className="text-[9px] text-slate-500 truncate max-w-[130px]">
-                        {cred.label}
-                      </div>
-                    </div>
-                    {isCurrent && <CheckCircle2 className="h-3.5 w-3.5 text-amber-400 shrink-0" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
         </div>
 
         {/* Footer Security Watermark */}

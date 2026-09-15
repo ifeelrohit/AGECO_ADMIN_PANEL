@@ -7,15 +7,31 @@ export type UserRole =
 
 export interface User {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   role: UserRole;
-  department: string;
   status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
-  twoFactorEnabled: boolean;
-  avatarUrl?: string;
-  lastLoginAt: string;
+  name?: string;
+  lastLoginAt?: string;
   createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateUserPayload {
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: UserRole;
+  status: 'ACTIVE' | 'INACTIVE';
+  password: string;
+}
+
+export interface UpdateUserPayload {
+  firstName?: string;
+  lastName?: string;
+  role?: UserRole;
+  status?: 'ACTIVE' | 'INACTIVE';
 }
 
 export interface PasswordResetResponse {

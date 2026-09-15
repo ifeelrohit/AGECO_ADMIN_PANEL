@@ -7,10 +7,9 @@ import {
   Server,
   UserCheck,
   Building2,
-  CheckCircle2,
   Menu,
 } from 'lucide-react';
-import { useAuth, DEMO_CREDENTIALS } from '../../context/AuthContext.tsx';
+import { useAuth } from '../../context/AuthContext.tsx';
 import { UserRole } from '../../types/index.ts';
 
 interface HeaderProps {
@@ -24,10 +23,13 @@ export const Header: React.FC<HeaderProps> = ({
   currentSubpage,
   onToggleSidebar,
 }) => {
-  const { user, logout, switchDemoRole } = useAuth();
+  const { user, logout } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
+
+  const displayName = user?.firstName
+    ? `${user.firstName} ${user.lastName || ''}`.trim()
+    : (user?.name || user?.email || 'User');
 
   const getRoleBadgeStyle = (role?: UserRole) => {
     switch (role) {
@@ -131,59 +133,11 @@ export const Header: React.FC<HeaderProps> = ({
           <span>PostgreSQL API Active</span>
         </div>
 
-        {/* Quick Role Switcher for Test Reviewers */}
-        <div className="relative">
-          <button
-            onClick={() => {
-              setShowRoleSwitcher(!showRoleSwitcher);
-              setShowNotifications(false);
-              setShowProfileMenu(false);
-            }}
-            className="flex items-center gap-1.5 rounded border border-slate-700 bg-slate-800/80 px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:border-slate-600 hover:bg-slate-700 transition"
-            title="Test role authorization permissions"
-          >
-            <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Role View:</span>
-            <span className="font-semibold text-amber-300">{user?.role}</span>
-            <ChevronDown className="h-3 w-3 text-slate-400" />
-          </button>
-
-          {showRoleSwitcher && (
-            <div className="absolute right-0 mt-2 w-72 rounded-lg border border-slate-800 bg-[#0e1626] p-2 shadow-2xl ring-1 ring-black/40 z-50">
-              <div className="border-b border-slate-800 pb-2 px-2">
-                <p className="text-xs font-semibold text-white">Switch Role Persona</p>
-                <p className="text-[11px] text-slate-400">
-                  Instantly verify permissions according to the locked role matrix.
-                </p>
-              </div>
-              <div className="mt-1 space-y-1">
-                {(Object.keys(DEMO_CREDENTIALS) as UserRole[]).map((r) => {
-                  const info = DEMO_CREDENTIALS[r];
-                  const isActive = user?.role === r;
-                  return (
-                    <button
-                      key={r}
-                      onClick={async () => {
-                        await switchDemoRole(r);
-                        setShowRoleSwitcher(false);
-                      }}
-                      className={`flex w-full items-center justify-between rounded px-2.5 py-1.5 text-left text-xs transition ${
-                        isActive
-                          ? 'bg-amber-500/15 text-amber-300 font-semibold'
-                          : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-                      }`}
-                    >
-                      <div>
-                        <div className="font-mono text-[11px]">{r}</div>
-                        <div className="text-[10px] text-slate-400">{info.department}</div>
-                      </div>
-                      {isActive && <CheckCircle2 className="h-3.5 w-3.5 text-amber-400" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+        {/* Role Badge Indicator */}
+        <div className="flex items-center gap-1.5 rounded border border-slate-700 bg-slate-800/80 px-2.5 py-1.5 text-xs font-medium text-slate-200">
+          <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />
+          <span className="hidden sm:inline text-slate-400">Role:</span>
+          <span className="font-semibold text-amber-300">{user?.role}</span>
         </div>
 
         {/* Notifications Dropdown */}
@@ -192,7 +146,6 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => {
               setShowNotifications(!showNotifications);
               setShowProfileMenu(false);
-              setShowRoleSwitcher(false);
             }}
             className="relative rounded-md border border-slate-800 bg-slate-900/60 p-2 text-slate-400 hover:border-slate-700 hover:text-slate-200 transition"
             aria-label="Notifications"
@@ -235,16 +188,15 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => {
               setShowProfileMenu(!showProfileMenu);
               setShowNotifications(false);
-              setShowRoleSwitcher(false);
             }}
             className="flex items-center gap-2.5 rounded-lg border border-slate-800 bg-slate-900/80 p-1.5 pr-3 text-left hover:border-slate-700 transition"
           >
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-tr from-slate-700 to-slate-800 text-xs font-semibold text-slate-200">
-              {user?.name?.charAt(0) || 'A'}
+              {displayName.charAt(0).toUpperCase()}
             </div>
             <div className="hidden text-left md:block">
               <div className="text-xs font-medium text-slate-200 leading-tight">
-                {user?.name}
+                {displayName}
               </div>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span
@@ -262,16 +214,15 @@ export const Header: React.FC<HeaderProps> = ({
           {showProfileMenu && (
             <div className="absolute right-0 mt-2 w-64 rounded-lg border border-slate-800 bg-[#0e1626] p-2 shadow-2xl z-50">
               <div className="border-b border-slate-800 pb-2 px-2">
-                <p className="text-xs font-semibold text-white">{user?.name}</p>
+                <p className="text-xs font-semibold text-white">{displayName}</p>
                 <p className="text-[11px] text-slate-400 font-mono">{user?.email}</p>
-                <p className="mt-1 text-[10px] text-slate-500">{user?.department}</p>
               </div>
               <div className="mt-2 space-y-1">
                 <div className="flex items-center justify-between rounded px-2 py-1.5 text-xs text-slate-300">
                   <span className="flex items-center gap-2">
-                    <UserCheck className="h-3.5 w-3.5 text-slate-400" /> 2FA Security
+                    <UserCheck className="h-3.5 w-3.5 text-slate-400" /> Account Status
                   </span>
-                  <span className="text-[10px] text-emerald-400 font-medium">Verified</span>
+                  <span className="text-[10px] text-emerald-400 font-medium font-mono">{user?.status || 'ACTIVE'}</span>
                 </div>
                 <button
                   onClick={() => logout()}

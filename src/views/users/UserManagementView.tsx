@@ -30,10 +30,12 @@ export const UserManagementView: React.FC = () => {
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
   // Form states for user provisioning
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<UserRole>('EDITOR');
-  const [department, setDepartment] = useState('');
+  const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
+  const [password, setPassword] = useState('');
   const [provisionError, setProvisionError] = useState<string | null>(null);
   const [isProvisioning, setIsProvisioning] = useState(false);
 
@@ -128,29 +130,33 @@ export const UserManagementView: React.FC = () => {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setProvisionError(null);
-    if (!name || !email || !department) {
-      setProvisionError('All fields are required.');
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !password) {
+      setProvisionError('First Name, Last Name, Email, and Password are required.');
       return;
     }
 
     setIsProvisioning(true);
     try {
       const res = await api.post<User>('/admin/users', {
-        name,
-        email,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim().toLowerCase(),
         role,
-        department,
-        status: 'ACTIVE',
-        twoFactorEnabled: true,
+        status,
+        password,
       });
 
       if (res.success && res.data) {
         setUsers((prev) => [...prev, res.data!]);
         setIsProvisionModalOpen(false);
-        setName('');
+        setFirstName('');
+        setLastName('');
         setEmail('');
-        setDepartment('');
-        showSuccessMessage(`User ${res.data.name} provisioned successfully with role ${res.data.role}.`);
+        setPassword('');
+        setStatus('ACTIVE');
+        setRole('EDITOR');
+        const createdName = `${res.data.firstName || ''} ${res.data.lastName || ''}`.trim() || res.data.email;
+        showSuccessMessage(`User ${createdName} provisioned successfully with role ${res.data.role}.`);
       } else {
         setProvisionError(res.error?.message || res.message || 'Failed to provision user account.');
       }
@@ -265,104 +271,97 @@ export const UserManagementView: React.FC = () => {
               <tr>
                 <th className="py-3 pl-4 pr-3">User</th>
                 <th className="py-3 px-3">Role Matrix Assignment</th>
-                <th className="py-3 px-3">Department</th>
-                <th className="py-3 px-3">MFA Status</th>
                 <th className="py-3 px-3">Account Status</th>
                 <th className="py-3 pl-3 pr-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/80 text-slate-300">
-              {users.map((u) => (
-                <tr
-                  key={u.id}
-                  className="hover:bg-slate-850/50 transition cursor-pointer"
-                  onClick={() => handleOpenUserDetails(u)}
-                >
-                  <td className="py-3 pl-4 pr-3">
-                    <div className="font-semibold text-white flex items-center gap-1.5">
-                      {u.name}
-                      {u.id === currentUser?.id && (
-                        <span className="rounded bg-slate-800 px-1.5 py-0.2 text-[9px] font-mono text-slate-400">
-                          Current
-                        </span>
-                      )}
-                    </div>
-                    <div className="font-mono text-[11px] text-slate-400">{u.email}</div>
-                  </td>
+              {users.map((u) => {
+                const displayName =
+                  u.firstName && u.lastName
+                    ? `${u.firstName} ${u.lastName}`
+                    : u.name || u.email;
 
-                  <td className="py-3 px-3" onClick={(e) => e.stopPropagation()}>
-                    <span
-                      className={`inline-block rounded border px-2 py-0.5 text-[10px] font-mono font-bold ${getRoleBadgeStyle(
-                        u.role
-                      )}`}
-                    >
-                      {u.role}
-                    </span>
-                  </td>
+                return (
+                  <tr
+                    key={u.id}
+                    className="hover:bg-slate-850/50 transition cursor-pointer"
+                    onClick={() => handleOpenUserDetails(u)}
+                  >
+                    <td className="py-3 pl-4 pr-3">
+                      <div className="font-semibold text-white flex items-center gap-1.5">
+                        {displayName}
+                        {u.id === currentUser?.id && (
+                          <span className="rounded bg-slate-800 px-1.5 py-0.2 text-[9px] font-mono text-slate-400">
+                            Current
+                          </span>
+                        )}
+                      </div>
+                      <div className="font-mono text-[11px] text-slate-400">{u.email}</div>
+                    </td>
 
-                  <td className="py-3 px-3 text-slate-300">{u.department}</td>
-
-                  <td className="py-3 px-3">
-                    {u.twoFactorEnabled ? (
-                      <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
-                        <ShieldCheck className="h-3.5 w-3.5" /> Enforced
+                    <td className="py-3 px-3" onClick={(e) => e.stopPropagation()}>
+                      <span
+                        className={`inline-block rounded border px-2 py-0.5 text-[10px] font-mono font-bold ${getRoleBadgeStyle(
+                          u.role
+                        )}`}
+                      >
+                        {u.role}
                       </span>
-                    ) : (
-                      <span className="text-[11px] text-slate-500">Disabled</span>
-                    )}
-                  </td>
+                    </td>
 
-                  <td className="py-3 px-3" onClick={(e) => e.stopPropagation()}>
-                    <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                        u.status === 'ACTIVE'
-                          ? 'bg-emerald-500/10 text-emerald-400'
-                          : 'bg-rose-500/10 text-rose-400'
-                      }`}
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                      {u.status}
-                    </span>
-                  </td>
-
-                  <td className="py-3 pl-3 pr-4 text-right" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        onClick={() => handleOpenUserDetails(u)}
-                        className="rounded border border-slate-700 bg-slate-800/80 px-2 py-1 text-[11px] font-medium text-slate-300 hover:text-white hover:border-slate-600 transition"
-                        title="View User Details"
+                    <td className="py-3 px-3" onClick={(e) => e.stopPropagation()}>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          u.status === 'ACTIVE'
+                            ? 'bg-emerald-500/10 text-emerald-400'
+                            : 'bg-rose-500/10 text-rose-400'
+                        }`}
                       >
-                        <Eye className="h-3.5 w-3.5" />
-                      </button>
+                        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                        {u.status}
+                      </span>
+                    </td>
 
-                      <button
-                        onClick={() => handleGeneratePasswordReset(u)}
-                        disabled={isResetting}
-                        className="rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] font-medium text-amber-300 hover:bg-amber-500/20 transition flex items-center gap-1"
-                        title="Generate single-use secure reset link"
-                      >
-                        <Key className="h-3.5 w-3.5" />
-                        <span className="hidden md:inline">Reset</span>
-                      </button>
-
-                      {u.id !== currentUser?.id ? (
+                    <td className="py-3 pl-3 pr-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
-                          onClick={() => handleToggleStatus(u)}
-                          className={`rounded px-2 py-1 text-[11px] font-medium border transition ${
-                            u.status === 'ACTIVE'
-                              ? 'border-slate-700 bg-slate-800 text-slate-300 hover:text-rose-400'
-                              : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-                          }`}
+                          onClick={() => handleOpenUserDetails(u)}
+                          className="rounded border border-slate-700 bg-slate-800/80 px-2 py-1 text-[11px] font-medium text-slate-300 hover:text-white hover:border-slate-600 transition"
+                          title="View User Details"
                         >
-                          {u.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                          <Eye className="h-3.5 w-3.5" />
                         </button>
-                      ) : (
-                        <span className="text-[11px] text-slate-500 italic px-1">Self</span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+
+                        <button
+                          onClick={() => handleGeneratePasswordReset(u)}
+                          disabled={isResetting}
+                          className="rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] font-medium text-amber-300 hover:bg-amber-500/20 transition flex items-center gap-1"
+                          title="Generate single-use secure reset link"
+                        >
+                          <Key className="h-3.5 w-3.5" />
+                          <span className="hidden md:inline">Reset</span>
+                        </button>
+
+                        {u.id !== currentUser?.id ? (
+                          <button
+                            onClick={() => handleToggleStatus(u)}
+                            className={`rounded px-2 py-1 text-[11px] font-medium border transition ${
+                              u.status === 'ACTIVE'
+                                ? 'border-slate-700 bg-slate-800 text-slate-300 hover:text-rose-400'
+                                : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                            }`}
+                          >
+                            {u.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-slate-500 italic px-1">Self</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -393,7 +392,11 @@ export const UserManagementView: React.FC = () => {
               <div className="mt-4 space-y-4">
                 <div className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/60 p-3">
                   <div>
-                    <h3 className="font-bold text-white text-sm">{selectedUser.name}</h3>
+                    <h3 className="font-bold text-white text-sm">
+                      {selectedUser.firstName && selectedUser.lastName
+                        ? `${selectedUser.firstName} ${selectedUser.lastName}`
+                        : (selectedUser.name || selectedUser.email)}
+                    </h3>
                     <p className="font-mono text-xs text-slate-400">{selectedUser.email}</p>
                   </div>
                   <span
@@ -407,29 +410,23 @@ export const UserManagementView: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div className="rounded border border-slate-800 bg-slate-900/30 p-2.5">
-                    <span className="text-slate-500 flex items-center gap-1">
-                      <Building className="h-3.5 w-3.5 text-slate-400" /> Department:
-                    </span>
+                    <span className="text-slate-500">First Name:</span>
                     <span className="font-semibold text-slate-200 mt-1 block">
-                      {selectedUser.department}
+                      {selectedUser.firstName || '—'}
                     </span>
                   </div>
 
                   <div className="rounded border border-slate-800 bg-slate-900/30 p-2.5">
-                    <span className="text-slate-500 flex items-center gap-1">
-                      <ShieldCheck className="h-3.5 w-3.5 text-slate-400" /> 2FA Authentication:
-                    </span>
-                    <span className="font-semibold text-emerald-400 mt-1 block">
-                      {selectedUser.twoFactorEnabled ? 'Enforced' : 'Not Enforced'}
+                    <span className="text-slate-500">Last Name:</span>
+                    <span className="font-semibold text-slate-200 mt-1 block">
+                      {selectedUser.lastName || '—'}
                     </span>
                   </div>
 
                   <div className="rounded border border-slate-800 bg-slate-900/30 p-2.5">
-                    <span className="text-slate-500 flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5 text-slate-400" /> Last Authoritative Login:
-                    </span>
-                    <span className="font-mono text-[11px] text-slate-300 mt-1 block">
-                      {selectedUser.lastLoginAt}
+                    <span className="text-slate-500">User Identifier:</span>
+                    <span className="font-mono text-[11px] text-slate-300 mt-1 block truncate">
+                      {selectedUser.id}
                     </span>
                   </div>
 
@@ -594,16 +591,29 @@ export const UserManagementView: React.FC = () => {
             )}
 
             <form onSubmit={handleCreateUser} className="mt-4 space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Eng. Fahad Al-Otaibi"
-                  className="mt-1 block w-full rounded border border-slate-700 bg-slate-900 py-1.5 px-2.5 text-xs text-white"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300">First Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="e.g. Fahad"
+                    className="mt-1 block w-full rounded border border-slate-700 bg-slate-900 py-1.5 px-2.5 text-xs text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300">Last Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="e.g. Al-Otaibi"
+                    className="mt-1 block w-full rounded border border-slate-700 bg-slate-900 py-1.5 px-2.5 text-xs text-white"
+                  />
+                </div>
               </div>
 
               <div>
@@ -618,31 +628,47 @@ export const UserManagementView: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300">Role Matrix Assignment</label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as UserRole)}
-                  className="mt-1 block w-full rounded border border-slate-700 bg-slate-900 py-1.5 px-2.5 text-xs text-white font-mono"
-                >
-                  <option value="SUPER_ADMIN">SUPER_ADMIN (Full Platform Authority)</option>
-                  <option value="ADMIN">ADMIN (Infrastructure & Operational Management)</option>
-                  <option value="EDITOR">EDITOR (Technical Specifications & Documentation)</option>
-                  <option value="SALES">SALES (Tenders & Commercial RFQ Pipeline)</option>
-                  <option value="CONTENT_MANAGER">CONTENT_MANAGER (Website Experience & Media)</option>
-                </select>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300">Role Matrix Assignment</label>
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as UserRole)}
+                    className="mt-1 block w-full rounded border border-slate-700 bg-slate-900 py-1.5 px-2.5 text-xs text-white font-mono"
+                  >
+                    <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                    <option value="ADMIN">ADMIN</option>
+                    <option value="EDITOR">EDITOR</option>
+                    <option value="SALES">SALES</option>
+                    <option value="CONTENT_MANAGER">CONTENT_MANAGER</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300">Account Status</label>
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as 'ACTIVE' | 'INACTIVE')}
+                    className="mt-1 block w-full rounded border border-slate-700 bg-slate-900 py-1.5 px-2.5 text-xs text-white font-mono"
+                  >
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="INACTIVE">INACTIVE</option>
+                  </select>
+                </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300">Department</label>
+                <label className="block text-xs font-semibold text-slate-300">Initial Password</label>
                 <input
-                  type="text"
+                  type="password"
                   required
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  placeholder="e.g. Medium Voltage Engineering Division"
-                  className="mt-1 block w-full rounded border border-slate-700 bg-slate-900 py-1.5 px-2.5 text-xs text-white"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter initial secure password"
+                  className="mt-1 block w-full rounded border border-slate-700 bg-slate-900 py-1.5 px-2.5 text-xs text-white font-mono"
                 />
+                <p className="mt-1 text-[10px] text-slate-400">
+                  Password is sent securely over HTTPS to the backend and is not stored or displayed in the browser.
+                </p>
               </div>
 
               <div className="flex justify-end gap-2 border-t border-slate-800 pt-3">
