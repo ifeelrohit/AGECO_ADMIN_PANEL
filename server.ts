@@ -54,6 +54,7 @@ async function startServer() {
   app.use('/api/v1/enquiries', enquiriesRouter);
   app.use('/api/v1/media', mediaRouter);
   app.use('/api/v1/seo', seoRouter);
+  app.use('/api/v1/admin/users', usersRouter);
   app.use('/api/v1/users', usersRouter);
   app.use('/api/v1/audit-logs', auditRouter);
   app.use('/api/v1/settings', settingsRouter);

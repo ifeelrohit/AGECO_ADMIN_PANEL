@@ -1,8 +1,10 @@
 import { ModulePermissionKey, UserRole } from '../types/index.ts';
 
-// Central API Base URL - configurable via VITE_API_URL environment variable
+// Central API Base URL - configurable via VITE_API_BASE_URL or VITE_API_URL environment variable
 export const API_BASE_URL: string =
-  ((import.meta as any).env?.VITE_API_URL as string) || '/api/v1';
+  ((import.meta as any).env?.VITE_API_BASE_URL as string) ||
+  ((import.meta as any).env?.VITE_API_URL as string) ||
+  '/api/v1';
 
 // Token storage key
 export const AUTH_TOKEN_KEY = 'ageco_adp_access_token';
@@ -106,8 +108,20 @@ class ApiClient {
     }
   }
 
-  async get<T>(endpoint: string): Promise<ApiResponse<T>> {
-    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+  async get<T>(endpoint: string, params?: Record<string, string | number | boolean | undefined>): Promise<ApiResponse<T>> {
+    let url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+    if (params) {
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, val]) => {
+        if (val !== undefined && val !== null) {
+          searchParams.append(key, String(val));
+        }
+      });
+      const qs = searchParams.toString();
+      if (qs) {
+        url += (url.includes('?') ? '&' : '?') + qs;
+      }
+    }
     const res = await fetch(url, {
       method: 'GET',
       headers: this.getHeaders(),
@@ -119,6 +133,16 @@ class ApiClient {
     const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
     const res = await fetch(url, {
       method: 'POST',
+      headers: this.getHeaders(),
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return this.handleResponse<T>(res);
+  }
+
+  async patch<T>(endpoint: string, body?: unknown): Promise<ApiResponse<T>> {
+    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+    const res = await fetch(url, {
+      method: 'PATCH',
       headers: this.getHeaders(),
       body: body ? JSON.stringify(body) : undefined,
     });

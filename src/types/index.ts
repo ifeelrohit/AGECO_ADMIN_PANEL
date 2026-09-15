@@ -18,6 +18,23 @@ export interface User {
   createdAt?: string;
 }
 
+export interface PasswordResetResponse {
+  resetToken?: string;
+  resetLink: string;
+  expiresInMinutes?: number;
+  expiresAt?: string;
+}
+
+export interface UsersResponseData {
+  users: User[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 export interface Product {
   id: string;
   sku: string;
