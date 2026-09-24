@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Compass, CheckCircle2 } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import { api } from '../../config/api.ts';
 import { Audience } from '../../types/index.ts';
 
@@ -23,11 +23,11 @@ export const AudiencesView: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-heading text-xl font-bold tracking-tight text-white sm:text-2xl">
-          Market Audiences & Segments
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          Target Audiences
         </h1>
-        <p className="text-xs text-slate-400">
-          Industrial verticals defining technical equipment requirements and compliance standards
+        <p className="mt-1 text-xs text-slate-500">
+          Industry sectors and market segments for products.
         </p>
       </div>
 
@@ -35,19 +35,19 @@ export const AudiencesView: React.FC = () => {
         {audiences.map((aud) => (
           <div
             key={aud.id}
-            className="rounded-xl border border-slate-800 bg-[#0c121e]/90 p-5 shadow transition hover:border-slate-700"
+            className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] transition hover:border-orange-300"
           >
             <div className="flex items-center justify-between">
-              <span className="rounded bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-400 border border-amber-500/20">
+              <span className="rounded bg-orange-50 px-2 py-0.5 font-mono text-[11px] font-bold text-orange-700">
                 {aud.code}
               </span>
-              <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
-                <CheckCircle2 className="h-3.5 w-3.5" /> Active
+              <span className="flex items-center gap-1 text-[11px] text-emerald-700 font-medium">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Active
               </span>
             </div>
-            <h2 className="mt-3 font-heading text-base font-bold text-white">{aud.name}</h2>
-            <div className="mt-1 text-xs text-cyan-400 font-medium">{aud.sector}</div>
-            <p className="mt-2 text-xs text-slate-400">{aud.description}</p>
+            <h2 className="mt-3 text-base font-bold text-slate-900">{aud.name}</h2>
+            <div className="mt-1 text-xs text-orange-600 font-semibold">{aud.sector}</div>
+            <p className="mt-2 text-xs text-slate-500">{aud.description}</p>
           </div>
         ))}
       </div>

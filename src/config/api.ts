@@ -102,13 +102,49 @@ class ApiClient {
         success: false,
         error: {
           code: `HTTP_${res.status}`,
-          message: res.statusText || 'Failed to parse JSON response',
+          message: res.statusText || 'Failed to parse response from server',
         },
       };
     }
   }
 
-  async get<T>(endpoint: string, params?: Record<string, string | number | boolean | undefined>): Promise<ApiResponse<T>> {
+  private async executeFetch<T>(
+    method: string,
+    url: string,
+    body?: unknown,
+    retries = 1
+  ): Promise<ApiResponse<T>> {
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: this.getHeaders(),
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      return await this.handleResponse<T>(res);
+    } catch (err: any) {
+      if (retries > 0) {
+        // Brief pause and retry in case server was starting up
+        await new Promise((r) => setTimeout(r, 400));
+        return this.executeFetch<T>(method, url, body, retries - 1);
+      }
+      console.warn(`[ApiClient] Network request failed for ${method} ${url}:`, err);
+      return {
+        success: false,
+        error: {
+          code: 'NETWORK_ERROR',
+          message:
+            err instanceof Error
+              ? err.message
+              : 'Connection to server failed. Please ensure the backend is active.',
+        },
+      };
+    }
+  }
+
+  async get<T>(
+    endpoint: string,
+    params?: Record<string, string | number | boolean | undefined>
+  ): Promise<ApiResponse<T>> {
     let url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
     if (params) {
       const searchParams = new URLSearchParams();
@@ -122,50 +158,27 @@ class ApiClient {
         url += (url.includes('?') ? '&' : '?') + qs;
       }
     }
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: this.getHeaders(),
-    });
-    return this.handleResponse<T>(res);
+    return this.executeFetch<T>('GET', url);
   }
 
   async post<T>(endpoint: string, body?: unknown): Promise<ApiResponse<T>> {
     const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    return this.handleResponse<T>(res);
+    return this.executeFetch<T>('POST', url, body);
   }
 
   async patch<T>(endpoint: string, body?: unknown): Promise<ApiResponse<T>> {
     const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-    const res = await fetch(url, {
-      method: 'PATCH',
-      headers: this.getHeaders(),
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    return this.handleResponse<T>(res);
+    return this.executeFetch<T>('PATCH', url, body);
   }
 
   async put<T>(endpoint: string, body?: unknown): Promise<ApiResponse<T>> {
     const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-    const res = await fetch(url, {
-      method: 'PUT',
-      headers: this.getHeaders(),
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    return this.handleResponse<T>(res);
+    return this.executeFetch<T>('PUT', url, body);
   }
 
   async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
     const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-    const res = await fetch(url, {
-      method: 'DELETE',
-      headers: this.getHeaders(),
-    });
-    return this.handleResponse<T>(res);
+    return this.executeFetch<T>('DELETE', url);
   }
 }
 

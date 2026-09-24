@@ -13,9 +13,12 @@ const websiteAuth = [
 // ----------------------------------------------------
 // HOMEPAGE HERO SLIDES
 // ----------------------------------------------------
-router.get('/homepage', ...websiteAuth, (_req, res: Response) => {
+const getHomepageSlides = (_req: any, res: Response) => {
   res.json({ success: true, data: agecoStore.heroSlides });
-});
+};
+
+router.get('/homepage', ...websiteAuth, getHomepageSlides);
+router.get('/homepage-slides', ...websiteAuth, getHomepageSlides);
 
 router.post('/homepage', ...websiteAuth, (req: AuthenticatedRequest, res: Response): void => {
   const { headline, subheadline, primaryCtaText, primaryCtaLink, badge, imageUrl, active = true } = req.body || {};
@@ -55,6 +58,20 @@ router.put('/homepage/:id', ...websiteAuth, (req: AuthenticatedRequest, res: Res
     agecoStore.recordAudit(req.user, 'UPDATE', 'WEBSITE_HOMEPAGE', id, `Updated homepage hero slide: ${updated.headline}`);
   }
   res.json({ success: true, data: updated });
+});
+
+router.delete('/homepage/:id', ...websiteAuth, (req: AuthenticatedRequest, res: Response): void => {
+  const { id } = req.params;
+  const index = agecoStore.heroSlides.findIndex((s) => s.id === id);
+  if (index === -1) {
+    res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Hero slide not found.' } });
+    return;
+  }
+  const removed = agecoStore.heroSlides.splice(index, 1)[0];
+  if (req.user) {
+    agecoStore.recordAudit(req.user, 'DELETE', 'WEBSITE_HOMEPAGE', id, `Deleted homepage slide '${removed.headline}'`);
+  }
+  res.json({ success: true, message: 'Hero slide removed successfully.' });
 });
 
 // ----------------------------------------------------
@@ -106,6 +123,20 @@ router.put('/solutions/:id', ...websiteAuth, (req: AuthenticatedRequest, res: Re
   res.json({ success: true, data: updated });
 });
 
+router.delete('/solutions/:id', ...websiteAuth, (req: AuthenticatedRequest, res: Response): void => {
+  const { id } = req.params;
+  const index = agecoStore.solutions.findIndex((s) => s.id === id);
+  if (index === -1) {
+    res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Solution not found.' } });
+    return;
+  }
+  const removed = agecoStore.solutions.splice(index, 1)[0];
+  if (req.user) {
+    agecoStore.recordAudit(req.user, 'DELETE', 'WEBSITE_SOLUTIONS', id, `Deleted solution '${removed.title}'`);
+  }
+  res.json({ success: true, message: 'Solution removed successfully.' });
+});
+
 // ----------------------------------------------------
 // INDUSTRIES
 // ----------------------------------------------------
@@ -151,6 +182,20 @@ router.put('/industries/:id', ...websiteAuth, (req: AuthenticatedRequest, res: R
     agecoStore.recordAudit(req.user, 'UPDATE', 'WEBSITE_INDUSTRIES', id, `Updated industry '${updated.name}'`);
   }
   res.json({ success: true, data: updated });
+});
+
+router.delete('/industries/:id', ...websiteAuth, (req: AuthenticatedRequest, res: Response): void => {
+  const { id } = req.params;
+  const index = agecoStore.industries.findIndex((i) => i.id === id);
+  if (index === -1) {
+    res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Industry not found.' } });
+    return;
+  }
+  const removed = agecoStore.industries.splice(index, 1)[0];
+  if (req.user) {
+    agecoStore.recordAudit(req.user, 'DELETE', 'WEBSITE_INDUSTRIES', id, `Deleted industry '${removed.name}'`);
+  }
+  res.json({ success: true, message: 'Industry removed successfully.' });
 });
 
 // ----------------------------------------------------
@@ -200,6 +245,20 @@ router.put('/stories/:id', ...websiteAuth, (req: AuthenticatedRequest, res: Resp
   res.json({ success: true, data: updated });
 });
 
+router.delete('/stories/:id', ...websiteAuth, (req: AuthenticatedRequest, res: Response): void => {
+  const { id } = req.params;
+  const index = agecoStore.stories.findIndex((s) => s.id === id);
+  if (index === -1) {
+    res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Story not found.' } });
+    return;
+  }
+  const removed = agecoStore.stories.splice(index, 1)[0];
+  if (req.user) {
+    agecoStore.recordAudit(req.user, 'DELETE', 'WEBSITE_STORIES', id, `Deleted story '${removed.title}'`);
+  }
+  res.json({ success: true, message: 'Story removed successfully.' });
+});
+
 // ----------------------------------------------------
 // PROJECTS
 // ----------------------------------------------------
@@ -247,11 +306,47 @@ router.put('/projects/:id', ...websiteAuth, (req: AuthenticatedRequest, res: Res
   res.json({ success: true, data: updated });
 });
 
+router.delete('/projects/:id', ...websiteAuth, (req: AuthenticatedRequest, res: Response): void => {
+  const { id } = req.params;
+  const index = agecoStore.projects.findIndex((p) => p.id === id);
+  if (index === -1) {
+    res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Project not found.' } });
+    return;
+  }
+  const removed = agecoStore.projects.splice(index, 1)[0];
+  if (req.user) {
+    agecoStore.recordAudit(req.user, 'DELETE', 'WEBSITE_PROJECTS', id, `Deleted project '${removed.title}'`);
+  }
+  res.json({ success: true, message: 'Project removed successfully.' });
+});
+
 // ----------------------------------------------------
 // WEBSITE CONTENT BLOCKS
 // ----------------------------------------------------
 router.get('/content-blocks', ...websiteAuth, (_req, res: Response) => {
   res.json({ success: true, data: agecoStore.contentBlocks });
+});
+
+router.post('/content-blocks', ...websiteAuth, (req: AuthenticatedRequest, res: Response): void => {
+  const { key, section = 'General', title, content } = req.body || {};
+  if (!key || !title || !content) {
+    res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Key, title, and content are required.' } });
+    return;
+  }
+  const newBlock: WebsiteContentBlock = {
+    id: `cb-${Date.now().toString().slice(-4)}`,
+    key,
+    section,
+    title,
+    content,
+    lastModifiedBy: req.user?.name || 'System Admin',
+    updatedAt: new Date().toISOString(),
+  };
+  agecoStore.contentBlocks.push(newBlock);
+  if (req.user) {
+    agecoStore.recordAudit(req.user, 'CREATE', 'WEBSITE_CONTENT', newBlock.id, `Created site content block '${newBlock.title}'`);
+  }
+  res.status(201).json({ success: true, data: newBlock });
 });
 
 router.put('/content-blocks/:id', ...websiteAuth, (req: AuthenticatedRequest, res: Response): void => {
@@ -274,6 +369,20 @@ router.put('/content-blocks/:id', ...websiteAuth, (req: AuthenticatedRequest, re
     agecoStore.recordAudit(req.user, 'UPDATE', 'WEBSITE_CONTENT', id, `Modified site content block '${updated.title}'`);
   }
   res.json({ success: true, data: updated });
+});
+
+router.delete('/content-blocks/:id', ...websiteAuth, (req: AuthenticatedRequest, res: Response): void => {
+  const { id } = req.params;
+  const index = agecoStore.contentBlocks.findIndex((cb) => cb.id === id);
+  if (index === -1) {
+    res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Content block not found.' } });
+    return;
+  }
+  const removed = agecoStore.contentBlocks.splice(index, 1)[0];
+  if (req.user) {
+    agecoStore.recordAudit(req.user, 'DELETE', 'WEBSITE_CONTENT', id, `Deleted content block '${removed.title}'`);
+  }
+  res.json({ success: true, message: 'Content block removed successfully.' });
 });
 
 export default router;

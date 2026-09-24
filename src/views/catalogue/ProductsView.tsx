@@ -1,19 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Boxes,
   Plus,
   Search,
-  Filter,
   Edit2,
   Trash2,
   Eye,
-  FileText,
-  CheckCircle2,
-  AlertTriangle,
   X,
-  Zap,
-  Tag,
-  ShieldCheck,
+  RefreshCw,
 } from 'lucide-react';
 import { api } from '../../config/api.ts';
 import { Product, Brand, Category, Subcategory, Audience, ProductType } from '../../types/index.ts';
@@ -58,7 +51,7 @@ export const ProductsView: React.FC = () => {
     featured: false,
     status: 'PUBLISHED' as Product['status'],
     mainImage: '',
-    specKeys: ['Rated Voltage', 'Rated Normal Current'],
+    specKeys: ['Rated Voltage', 'Rated Current'],
     specVals: ['36 kV', '1250 A'],
   });
 
@@ -94,50 +87,50 @@ export const ProductsView: React.FC = () => {
   const openCreateModal = () => {
     setEditingProduct(null);
     setFormData({
-      sku: `AG-MV-${Math.floor(100 + Math.random() * 900)}`,
+      sku: `AG-${Math.floor(100 + Math.random() * 900)}`,
       title: '',
       brandId: brands[0]?.id || '',
       categoryId: categories[0]?.id || '',
-      subcategoryId: subcategories[0]?.id || '',
+      subcategoryId: '',
       audienceId: audiences[0]?.id || '',
       productTypeId: productTypes[0]?.id || '',
       shortDescription: '',
       technicalSummary: '',
-      voltageRating: '36 kV',
-      currentRating: '1250 A',
-      ipRating: 'IP54',
+      voltageRating: '11 kV',
+      currentRating: '630 A',
+      ipRating: 'IP4X',
       featured: false,
       status: 'PUBLISHED',
-      mainImage: 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?w=800&auto=format&fit=crop&q=80',
-      specKeys: ['Standard', 'Breaking Capacity'],
-      specVals: ['IEC 62271-100', '31.5 kA'],
+      mainImage: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&q=80&w=600',
+      specKeys: ['Voltage', 'Current'],
+      specVals: ['11 kV', '630 A'],
     });
     setFormError(null);
     setIsModalOpen(true);
   };
 
-  const openEditModal = (product: Product) => {
-    setEditingProduct(product);
-    const keys = Object.keys(product.specifications || {});
-    const vals = Object.values(product.specifications || {});
+  const openEditModal = (p: Product) => {
+    setEditingProduct(p);
+    const keys = Object.keys(p.specifications || {});
+    const vals = Object.values(p.specifications || {});
     setFormData({
-      sku: product.sku,
-      title: product.title,
-      brandId: product.brandId,
-      categoryId: product.categoryId,
-      subcategoryId: product.subcategoryId || '',
-      audienceId: product.audienceId || '',
-      productTypeId: product.productTypeId || '',
-      shortDescription: product.shortDescription,
-      technicalSummary: product.technicalSummary,
-      voltageRating: product.voltageRating || '',
-      currentRating: product.currentRating || '',
-      ipRating: product.ipRating || '',
-      featured: product.featured,
-      status: product.status,
-      mainImage: product.mainImage,
-      specKeys: keys.length > 0 ? keys : ['Standard'],
-      specVals: vals.length > 0 ? vals : ['IEC 62271'],
+      sku: p.sku,
+      title: p.title,
+      brandId: p.brandId,
+      categoryId: p.categoryId,
+      subcategoryId: p.subcategoryId || '',
+      audienceId: p.audienceId || '',
+      productTypeId: p.productTypeId || '',
+      shortDescription: p.shortDescription || '',
+      technicalSummary: p.technicalSummary || '',
+      voltageRating: p.voltageRating || '',
+      currentRating: p.currentRating || '',
+      ipRating: p.ipRating || '',
+      featured: p.featured,
+      status: p.status,
+      mainImage: p.mainImage,
+      specKeys: keys.length ? keys : ['Voltage', 'Current'],
+      specVals: vals.length ? vals : ['', ''],
     });
     setFormError(null);
     setIsModalOpen(true);
@@ -145,29 +138,24 @@ export const ProductsView: React.FC = () => {
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.sku || !formData.title || !formData.categoryId || !formData.brandId) {
-      setFormError('SKU, Title, Category, and Brand are mandatory fields.');
-      return;
-    }
-
     setIsSubmitting(true);
     setFormError(null);
 
-    const specifications: Record<string, string> = {};
-    formData.specKeys.forEach((key, idx) => {
-      if (key.trim()) {
-        specifications[key.trim()] = formData.specVals[idx] || '';
+    const specs: Record<string, string> = {};
+    formData.specKeys.forEach((k, idx) => {
+      if (k.trim() && formData.specVals[idx]?.trim()) {
+        specs[k.trim()] = formData.specVals[idx].trim();
       }
     });
 
     const payload = {
       sku: formData.sku,
       title: formData.title,
-      brandId: formData.brandId,
-      categoryId: formData.categoryId,
-      subcategoryId: formData.subcategoryId,
-      audienceId: formData.audienceId,
-      productTypeId: formData.productTypeId,
+      brandId: formData.brandId || brands[0]?.id,
+      categoryId: formData.categoryId || categories[0]?.id,
+      subcategoryId: formData.subcategoryId || undefined,
+      audienceId: formData.audienceId || undefined,
+      productTypeId: formData.productTypeId || undefined,
       shortDescription: formData.shortDescription,
       technicalSummary: formData.technicalSummary,
       voltageRating: formData.voltageRating,
@@ -176,97 +164,96 @@ export const ProductsView: React.FC = () => {
       featured: formData.featured,
       status: formData.status,
       mainImage: formData.mainImage,
-      specifications,
-      standardCertifications: ['IEC Standards', 'ISO 9001:2015'],
-      documents: editingProduct?.documents || [
-        { title: 'Technical Datasheet PDF', url: '/docs/spec.pdf', type: 'PDF' as const },
-      ],
+      specifications: specs,
     };
 
     try {
       if (editingProduct) {
         const res = await api.put<Product>(`/catalogue/products/${editingProduct.id}`, payload);
         if (res.success && res.data) {
-          setProducts((prev) => prev.map((p) => (p.id === editingProduct.id ? res.data! : p)));
+          setProducts(products.map((p) => (p.id === editingProduct.id ? res.data! : p)));
           setIsModalOpen(false);
         } else {
-          setFormError(res.error?.message || 'Failed to update product');
+          setFormError(res.error?.message || 'Failed to update product.');
         }
       } else {
         const res = await api.post<Product>('/catalogue/products', payload);
         if (res.success && res.data) {
-          setProducts((prev) => [res.data!, ...prev]);
+          setProducts([res.data, ...products]);
           setIsModalOpen(false);
         } else {
-          setFormError(res.error?.message || 'Failed to create product');
+          setFormError(res.error?.message || 'Failed to create product.');
         }
       }
     } catch (err: any) {
-      setFormError(err.message || 'API connection failed');
+      setFormError(err.message || 'Operation failed.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDeleteProduct = async (id: string, sku: string) => {
-    if (!window.confirm(`Are you sure you want to remove product ${sku} from the AGECO catalogue?`)) {
+    if (!window.confirm(`Are you sure you want to delete product ${sku}?`)) {
       return;
     }
-
     try {
       const res = await api.delete(`/catalogue/products/${id}`);
       if (res.success) {
-        setProducts((prev) => prev.filter((p) => p.id !== id));
+        setProducts(products.filter((p) => p.id !== id));
+      } else {
+        alert(res.error?.message || 'Failed to delete product.');
       }
     } catch (err) {
-      console.error('Failed to delete product', err);
+      console.error(err);
     }
   };
 
-  // Filtered product listing
+  // Filter products
   const filteredProducts = products.filter((p) => {
     const matchesSearch =
-      !searchQuery ||
       p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = !selectedCategory || p.categoryId === selectedCategory;
-    const matchesBrand = !selectedBrand || p.brandId === selectedBrand;
-    const matchesStatus = !selectedStatus || p.status === selectedStatus;
-    return matchesSearch && matchesCategory && matchesBrand && matchesStatus;
+      p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.voltageRating && p.voltageRating.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    const matchesCat = selectedCategory ? p.categoryId === selectedCategory : true;
+    const matchesBrand = selectedBrand ? p.brandId === selectedBrand : true;
+    const matchesStatus = selectedStatus ? p.status === selectedStatus : true;
+
+    return matchesSearch && matchesCat && matchesBrand && matchesStatus;
   });
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* View Header */}
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="font-heading text-xl font-bold tracking-tight text-white sm:text-2xl">
-            Product Catalogue & Equipment
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            Products
           </h1>
-          <p className="text-xs text-slate-400">
-            Authoritative inventory of medium/low voltage switchgear, transformers, and SCADA panels
+          <p className="mt-1 text-xs text-slate-500">
+            Manage product catalogue and inventory.
           </p>
         </div>
 
         <button
           onClick={openCreateModal}
-          className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3.5 py-2 text-xs font-semibold text-slate-950 hover:bg-amber-400 transition shadow-sm"
+          className="flex items-center gap-1.5 rounded-lg bg-orange-500 px-4 py-2 text-xs font-semibold text-white hover:bg-orange-600 transition shadow-sm"
         >
           <Plus className="h-4 w-4" />
-          <span>New Product Item</span>
+          <span>Add Product</span>
         </button>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col gap-3 rounded-xl border border-slate-800 bg-[#0c121e]/90 p-4 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 rounded-xl border border-slate-200/90 bg-white p-4 sm:flex-row sm:items-center shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Search by SKU, product name, or rating..."
+            placeholder="Search products..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-md border border-slate-700 bg-slate-900/90 py-2 pl-9 pr-3 text-xs text-slate-200 placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+            className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs text-slate-800 placeholder-slate-400 focus:border-orange-500 focus:outline-none"
           />
         </div>
 
@@ -275,7 +262,7 @@ export const ProductsView: React.FC = () => {
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="rounded-md border border-slate-700 bg-slate-900/90 px-3 py-2 text-xs text-slate-300 focus:border-amber-500 focus:outline-none"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 focus:border-orange-500 focus:outline-none"
           >
             <option value="">All Categories</option>
             {categories.map((c) => (
@@ -289,7 +276,7 @@ export const ProductsView: React.FC = () => {
           <select
             value={selectedBrand}
             onChange={(e) => setSelectedBrand(e.target.value)}
-            className="rounded-md border border-slate-700 bg-slate-900/90 px-3 py-2 text-xs text-slate-300 focus:border-amber-500 focus:outline-none"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 focus:border-orange-500 focus:outline-none"
           >
             <option value="">All Brands</option>
             {brands.map((b) => (
@@ -303,7 +290,7 @@ export const ProductsView: React.FC = () => {
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="rounded-md border border-slate-700 bg-slate-900/90 px-3 py-2 text-xs text-slate-300 focus:border-amber-500 focus:outline-none"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 focus:border-orange-500 focus:outline-none"
           >
             <option value="">All Statuses</option>
             <option value="PUBLISHED">Published</option>
@@ -314,24 +301,33 @@ export const ProductsView: React.FC = () => {
       </div>
 
       {/* Products Table */}
-      <div className="overflow-hidden rounded-xl border border-slate-800 bg-[#0c121e]/90 shadow">
+      <div className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="border-b border-slate-800 bg-slate-900/60 font-mono text-[11px] uppercase tracking-wider text-slate-400">
+            <thead className="border-b border-slate-100 bg-slate-50/60 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="py-3 pl-4 pr-3">Product / SKU</th>
                 <th className="py-3 px-3">Category & Brand</th>
-                <th className="py-3 px-3">Technical Ratings</th>
+                <th className="py-3 px-3">Specs</th>
                 <th className="py-3 px-3">Status</th>
-                <th className="py-3 px-3">Last Modified</th>
+                <th className="py-3 px-3">Updated</th>
                 <th className="py-3 pl-3 pr-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/80 text-slate-300">
-              {filteredProducts.length === 0 ? (
+            <tbody className="divide-y divide-slate-100 text-slate-700">
+              {loading ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-500">
-                    No equipment found matching the filter criteria.
+                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                    <div className="flex items-center justify-center gap-2">
+                      <RefreshCw className="h-4 w-4 animate-spin text-orange-500" />
+                      <span>Loading products...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredProducts.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                    No products found.
                   </td>
                 </tr>
               ) : (
@@ -340,86 +336,85 @@ export const ProductsView: React.FC = () => {
                   const category = categories.find((c) => c.id === product.categoryId);
 
                   return (
-                    <tr key={product.id} className="hover:bg-slate-850/50 transition">
-                      <td className="py-3 pl-4 pr-3">
+                    <tr key={product.id} className="hover:bg-slate-50/70 transition">
+                      <td className="py-3.5 pl-4 pr-3">
                         <div className="flex items-center gap-3">
                           <img
                             src={product.mainImage}
                             alt={product.title}
-                            className="h-10 w-10 shrink-0 rounded border border-slate-700 object-cover"
+                            className="h-10 w-10 shrink-0 rounded-lg border border-slate-200 object-cover"
                           />
                           <div>
-                            <div className="font-semibold text-white line-clamp-1">
+                            <div className="font-semibold text-slate-900 line-clamp-1">
                               {product.title}
                             </div>
-                            <div className="font-mono text-[11px] text-amber-400">
+                            <div className="font-mono text-[11px] text-orange-600">
                               {product.sku}
                             </div>
                           </div>
                         </div>
                       </td>
 
-                      <td className="py-3 px-3">
-                        <div className="font-medium text-slate-200">
-                          {category?.name || 'General Category'}
+                      <td className="py-3.5 px-3">
+                        <div className="font-medium text-slate-800">
+                          {category?.name || 'General'}
                         </div>
-                        <div className="text-[11px] text-slate-400 font-mono">
-                          {brand?.name || 'Proprietary'}
+                        <div className="text-[11px] text-slate-500">
+                          {brand?.name || '—'}
                         </div>
                       </td>
 
-                      <td className="py-3 px-3 font-mono text-[11px]">
+                      <td className="py-3.5 px-3 font-mono text-[11px]">
                         {product.voltageRating && (
-                          <span className="mr-2 inline-block rounded bg-slate-800 px-1.5 py-0.5 text-cyan-300">
+                          <span className="mr-1.5 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">
                             {product.voltageRating}
                           </span>
                         )}
                         {product.currentRating && (
-                          <span className="inline-block rounded bg-slate-800 px-1.5 py-0.5 text-amber-300">
+                          <span className="inline-block rounded bg-orange-50 px-1.5 py-0.5 text-orange-700">
                             {product.currentRating}
                           </span>
                         )}
                       </td>
 
-                      <td className="py-3 px-3">
+                      <td className="py-3.5 px-3">
                         <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wider ${
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
                             product.status === 'PUBLISHED'
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                              ? 'bg-emerald-50 text-emerald-700'
                               : product.status === 'DRAFT'
-                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                              : 'bg-slate-700/40 text-slate-400 border border-slate-600'
+                              ? 'bg-amber-50 text-amber-700'
+                              : 'bg-slate-100 text-slate-600'
                           }`}
                         >
-                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
                           {product.status}
                         </span>
                       </td>
 
-                      <td className="py-3 px-3 font-mono text-[11px] text-slate-400">
+                      <td className="py-3.5 px-3 text-[11px] text-slate-500">
                         {new Date(product.updatedAt).toLocaleDateString()}
                       </td>
 
-                      <td className="py-3 pl-3 pr-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className="py-3.5 pl-3 pr-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => setDetailProduct(product)}
-                            className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
-                            title="Inspect Technical Specs"
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+                            title="View Details"
                           >
                             <Eye className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => openEditModal(product)}
-                            className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-amber-400"
-                            title="Edit Product"
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-orange-50 hover:text-orange-600 transition"
+                            title="Edit"
                           >
                             <Edit2 className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteProduct(product.id, product.sku)}
-                            className="rounded p-1 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400"
-                            title="Delete Product"
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
+                            title="Delete"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -436,22 +431,22 @@ export const ProductsView: React.FC = () => {
 
       {/* Modal: Create or Edit Product */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="relative w-full max-w-2xl rounded-xl border border-slate-800 bg-[#0e1525] p-6 shadow-2xl my-8">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h2 className="font-heading text-base font-bold text-white">
-                {editingProduct ? `Edit Equipment: ${editingProduct.sku}` : 'Add New Equipment Item'}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm overflow-y-auto">
+          <div className="relative w-full max-w-2xl rounded-xl border border-slate-200 bg-white p-6 shadow-2xl my-8">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h2 className="text-base font-bold text-slate-900">
+                {editingProduct ? `Edit Product: ${editingProduct.sku}` : 'Add Product'}
               </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                className="text-slate-400 hover:text-slate-600"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             {formError && (
-              <div className="mt-3 rounded-md border border-rose-500/30 bg-rose-500/10 p-2 text-xs text-rose-300">
+              <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-2.5 text-xs text-rose-700">
                 {formError}
               </div>
             )}
@@ -459,35 +454,35 @@ export const ProductsView: React.FC = () => {
             <form onSubmit={handleSaveProduct} className="mt-4 space-y-4">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300">SKU Code</label>
+                  <label className="block text-xs font-semibold text-slate-700">SKU</label>
                   <input
                     type="text"
                     required
                     value={formData.sku}
                     onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                    className="mt-1 block w-full rounded border border-slate-700 bg-slate-900 py-1.5 px-2.5 text-xs text-white font-mono focus:border-amber-500 focus:outline-none"
+                    className="mt-1 block w-full rounded-lg border border-slate-200 bg-white py-2 px-3 text-xs text-slate-800 font-mono focus:border-orange-500 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300">Title / Name</label>
+                  <label className="block text-xs font-semibold text-slate-700">Title</label>
                   <input
                     type="text"
                     required
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="mt-1 block w-full rounded border border-slate-700 bg-slate-900 py-1.5 px-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
+                    className="mt-1 block w-full rounded-lg border border-slate-200 bg-white py-2 px-3 text-xs text-slate-800 focus:border-orange-500 focus:outline-none"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300">Category</label>
+                  <label className="block text-xs font-semibold text-slate-700">Category</label>
                   <select
                     value={formData.categoryId}
                     onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                    className="mt-1 block w-full rounded border border-slate-700 bg-slate-900 py-1.5 px-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
+                    className="mt-1 block w-full rounded-lg border border-slate-200 bg-white py-2 px-3 text-xs text-slate-800 focus:border-orange-500 focus:outline-none"
                   >
                     {categories.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -498,11 +493,11 @@ export const ProductsView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300">Brand / OEM</label>
+                  <label className="block text-xs font-semibold text-slate-700">Brand</label>
                   <select
                     value={formData.brandId}
                     onChange={(e) => setFormData({ ...formData, brandId: e.target.value })}
-                    className="mt-1 block w-full rounded border border-slate-700 bg-slate-900 py-1.5 px-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
+                    className="mt-1 block w-full rounded-lg border border-slate-200 bg-white py-2 px-3 text-xs text-slate-800 focus:border-orange-500 focus:outline-none"
                   >
                     {brands.map((b) => (
                       <option key={b.id} value={b.id}>
@@ -515,64 +510,54 @@ export const ProductsView: React.FC = () => {
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300">Voltage Rating</label>
+                  <label className="block text-xs font-semibold text-slate-700">Voltage</label>
                   <input
                     type="text"
-                    placeholder="e.g. 36 kV"
+                    placeholder="e.g. 11 kV"
                     value={formData.voltageRating}
                     onChange={(e) => setFormData({ ...formData, voltageRating: e.target.value })}
-                    className="mt-1 block w-full rounded border border-slate-700 bg-slate-900 py-1.5 px-2.5 text-xs text-white font-mono"
+                    className="mt-1 block w-full rounded-lg border border-slate-200 bg-white py-2 px-3 text-xs text-slate-800 font-mono focus:border-orange-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300">Current Rating</label>
+                  <label className="block text-xs font-semibold text-slate-700">Current</label>
                   <input
                     type="text"
-                    placeholder="e.g. 1250 A"
+                    placeholder="e.g. 630 A"
                     value={formData.currentRating}
                     onChange={(e) => setFormData({ ...formData, currentRating: e.target.value })}
-                    className="mt-1 block w-full rounded border border-slate-700 bg-slate-900 py-1.5 px-2.5 text-xs text-white font-mono"
+                    className="mt-1 block w-full rounded-lg border border-slate-200 bg-white py-2 px-3 text-xs text-slate-800 font-mono focus:border-orange-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300">IP Ingress Rating</label>
+                  <label className="block text-xs font-semibold text-slate-700">IP Rating</label>
                   <input
                     type="text"
                     placeholder="e.g. IP54"
                     value={formData.ipRating}
                     onChange={(e) => setFormData({ ...formData, ipRating: e.target.value })}
-                    className="mt-1 block w-full rounded border border-slate-700 bg-slate-900 py-1.5 px-2.5 text-xs text-white font-mono"
+                    className="mt-1 block w-full rounded-lg border border-slate-200 bg-white py-2 px-3 text-xs text-slate-800 font-mono focus:border-orange-500 focus:outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300">Short Description</label>
+                <label className="block text-xs font-semibold text-slate-700">Description</label>
                 <textarea
                   rows={2}
                   value={formData.shortDescription}
                   onChange={(e) => setFormData({ ...formData, shortDescription: e.target.value })}
-                  className="mt-1 block w-full rounded border border-slate-700 bg-slate-900 py-1.5 px-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300">Technical Summary</label>
-                <textarea
-                  rows={3}
-                  value={formData.technicalSummary}
-                  onChange={(e) => setFormData({ ...formData, technicalSummary: e.target.value })}
-                  className="mt-1 block w-full rounded border border-slate-700 bg-slate-900 py-1.5 px-2.5 text-xs text-white focus:border-amber-500 focus:outline-none"
+                  className="mt-1 block w-full rounded-lg border border-slate-200 bg-white py-2 px-3 text-xs text-slate-800 focus:border-orange-500 focus:outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300">Publication Status</label>
+                  <label className="block text-xs font-semibold text-slate-700">Status</label>
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                    className="mt-1 block w-full rounded border border-slate-700 bg-slate-900 py-1.5 px-2.5 text-xs text-white focus:border-amber-500"
+                    className="mt-1 block w-full rounded-lg border border-slate-200 bg-white py-2 px-3 text-xs text-slate-800 focus:border-orange-500 focus:outline-none"
                   >
                     <option value="PUBLISHED">PUBLISHED</option>
                     <option value="DRAFT">DRAFT</option>
@@ -586,28 +571,28 @@ export const ProductsView: React.FC = () => {
                     id="featured-toggle"
                     checked={formData.featured}
                     onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
-                    className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-amber-500"
+                    className="h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-500"
                   />
-                  <label htmlFor="featured-toggle" className="text-xs font-medium text-slate-300">
-                    Feature on Main Website Showcase
+                  <label htmlFor="featured-toggle" className="text-xs font-medium text-slate-700">
+                    Featured Product
                   </label>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 border-t border-slate-800 pt-4">
+              <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="rounded border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800"
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="rounded bg-amber-500 px-4 py-1.5 text-xs font-semibold text-slate-950 hover:bg-amber-400 disabled:opacity-50"
+                  className="rounded-lg bg-orange-500 px-4 py-1.5 text-xs font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Syncing with ADP Backend...' : 'Save Product Record'}
+                  {isSubmitting ? 'Saving...' : 'Save Product'}
                 </button>
               </div>
             </form>
@@ -615,50 +600,48 @@ export const ProductsView: React.FC = () => {
         </div>
       )}
 
-      {/* Modal: View Full Details */}
+      {/* Modal: View Product Details */}
       {detailProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-xl rounded-xl border border-slate-800 bg-[#0e1525] p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="font-heading text-base font-bold text-white">
+                <h3 className="text-base font-bold text-slate-900">
                   {detailProduct.title}
                 </h3>
-                <span className="font-mono text-xs text-amber-400">{detailProduct.sku}</span>
+                <span className="font-mono text-xs text-orange-600">{detailProduct.sku}</span>
               </div>
               <button
                 onClick={() => setDetailProduct(null)}
-                className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                className="text-slate-400 hover:text-slate-600"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <div className="mt-4 space-y-3 text-xs">
-              <p className="text-slate-300">{detailProduct.technicalSummary}</p>
+              <p className="text-slate-600">{detailProduct.shortDescription || detailProduct.technicalSummary || 'No description provided.'}</p>
 
-              <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3">
-                <span className="font-semibold text-slate-200">Technical Specifications:</span>
-                <dl className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <span className="font-semibold text-slate-800">Specifications:</span>
+                <dl className="mt-2 grid grid-cols-2 gap-2 text-xs">
                   {Object.entries(detailProduct.specifications || {}).map(([k, v]) => (
-                    <div key={k} className="border-b border-slate-800/80 pb-1">
+                    <div key={k} className="border-b border-slate-200/60 pb-1">
                       <dt className="text-slate-500">{k}</dt>
-                      <dd className="font-mono text-slate-200">{v}</dd>
+                      <dd className="font-mono text-slate-800">{v}</dd>
                     </div>
                   ))}
                 </dl>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400">Certifications:</span>
-                {detailProduct.standardCertifications?.map((c, i) => (
-                  <span
-                    key={i}
-                    className="rounded bg-slate-800 px-2 py-0.5 font-mono text-[10px] text-emerald-300"
-                  >
-                    {c}
-                  </span>
-                ))}
+              <div className="flex justify-end pt-3">
+                <button
+                  type="button"
+                  onClick={() => setDetailProduct(null)}
+                  className="rounded-lg bg-slate-100 px-4 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>

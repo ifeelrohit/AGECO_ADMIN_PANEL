@@ -1,7 +1,8 @@
-import { Router, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import { agecoStore } from '../data/store.ts';
 import { authenticateToken, authorizeRoles, AuthenticatedRequest } from '../middleware/auth.ts';
 import { Product, Brand, Category, Subcategory, Audience, ProductType } from '../types.ts';
+import { generateCategoryKeywords, generateSubcategoryKeywords, generateBrandKeywords } from './seo.ts';
 
 const router = Router();
 
@@ -48,29 +49,42 @@ router.post('/audiences', ...catalogueAuth, (req: AuthenticatedRequest, res: Res
 // ----------------------------------------------------
 // CATEGORIES
 // ----------------------------------------------------
-router.get('/categories', ...catalogueAuth, (_req, res: Response) => {
-  res.json({ success: true, data: agecoStore.categories });
+router.get('/categories', ...catalogueAuth, (req: Request, res: Response) => {
+  const { audienceId } = req.query;
+  let list = agecoStore.categories;
+  if (audienceId) {
+    list = list.filter((c) => c.audienceId === audienceId);
+  }
+  res.json({ success: true, data: list });
 });
 
 router.post('/categories', ...catalogueAuth, (req: AuthenticatedRequest, res: Response): void => {
-  const { name, code, audienceId, description, iconName = 'Zap', active = true } = req.body || {};
+  const { name, code, audienceId, description, iconName = 'Zap', active = true, seoKeywords, metaTitle, metaDescription, canonicalUrl } = req.body || {};
   if (!name || !code || !audienceId) {
     res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Name, code, and audienceId are required.' } });
     return;
   }
+  const cleanCode = String(code).toUpperCase();
+  const subcats = agecoStore.subcategories.filter((s) => s.categoryId === `cat-${Date.now().toString().slice(-4)}`);
+  const generatedKw = generateCategoryKeywords({ name, code: cleanCode, audienceId, description }, subcats);
+
   const newCategory: Category = {
     id: `cat-${Date.now().toString().slice(-4)}`,
     name,
-    code: String(code).toUpperCase(),
+    code: cleanCode,
     audienceId,
     description: description || '',
     iconName: iconName || 'Zap',
     order: agecoStore.categories.length + 1,
     active: Boolean(active),
+    seoKeywords: Array.isArray(seoKeywords) && seoKeywords.length > 0 ? seoKeywords : generatedKw,
+    metaTitle: metaTitle || `${name} Solutions & Specifications | AGECO`,
+    metaDescription: metaDescription || description || `Explore certified ${name} electrical and industrial equipment from AGECO.`,
+    canonicalUrl: canonicalUrl || `https://ageco.com.sa/catalogue/category/${cleanCode.toLowerCase()}`,
   };
   agecoStore.categories.push(newCategory);
   if (req.user) {
-    agecoStore.recordAudit(req.user, 'CREATE', 'CATALOGUE_CATEGORIES', newCategory.id, `Created category '${newCategory.name}'`);
+    agecoStore.recordAudit(req.user, 'CREATE', 'CATALOGUE_CATEGORIES', newCategory.id, `Created category '${newCategory.name}' with ${newCategory.seoKeywords.length} SEO keywords`);
   }
   res.status(201).json({ success: true, data: newCategory });
 });
@@ -98,27 +112,40 @@ router.put('/categories/:id', ...catalogueAuth, (req: AuthenticatedRequest, res:
 // ----------------------------------------------------
 // SUBCATEGORIES
 // ----------------------------------------------------
-router.get('/subcategories', ...catalogueAuth, (_req, res: Response) => {
-  res.json({ success: true, data: agecoStore.subcategories });
+router.get('/subcategories', ...catalogueAuth, (req: Request, res: Response) => {
+  const { categoryId } = req.query;
+  let list = agecoStore.subcategories;
+  if (categoryId) {
+    list = list.filter((s) => s.categoryId === categoryId);
+  }
+  res.json({ success: true, data: list });
 });
 
 router.post('/subcategories', ...catalogueAuth, (req: AuthenticatedRequest, res: Response): void => {
-  const { name, code, categoryId, description, active = true } = req.body || {};
+  const { name, code, categoryId, description, active = true, seoKeywords, metaTitle, metaDescription, canonicalUrl } = req.body || {};
   if (!name || !code || !categoryId) {
     res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Name, code, and categoryId are required.' } });
     return;
   }
+  const cleanCode = String(code).toUpperCase();
+  const parentCat = agecoStore.categories.find((c) => c.id === categoryId);
+  const generatedKw = generateSubcategoryKeywords({ name, code: cleanCode }, parentCat?.name);
+
   const newSubcat: Subcategory = {
     id: `subcat-${Date.now().toString().slice(-4)}`,
     name,
-    code: String(code).toUpperCase(),
+    code: cleanCode,
     categoryId,
     description: description || '',
     active: Boolean(active),
+    seoKeywords: Array.isArray(seoKeywords) && seoKeywords.length > 0 ? seoKeywords : generatedKw,
+    metaTitle: metaTitle || `${name} - ${parentCat?.name || 'AGECO'} | Specifications`,
+    metaDescription: metaDescription || description || `Explore ${name} models and documentation.`,
+    canonicalUrl: canonicalUrl || `https://ageco.com.sa/catalogue/sub/${cleanCode.toLowerCase()}`,
   };
   agecoStore.subcategories.push(newSubcat);
   if (req.user) {
-    agecoStore.recordAudit(req.user, 'CREATE', 'CATALOGUE_SUBCATEGORIES', newSubcat.id, `Created subcategory '${newSubcat.name}'`);
+    agecoStore.recordAudit(req.user, 'CREATE', 'CATALOGUE_SUBCATEGORIES', newSubcat.id, `Created subcategory '${newSubcat.name}' with ${newSubcat.seoKeywords.length} SEO keywords`);
   }
   res.status(201).json({ success: true, data: newSubcat });
 });
@@ -126,30 +153,56 @@ router.post('/subcategories', ...catalogueAuth, (req: AuthenticatedRequest, res:
 // ----------------------------------------------------
 // BRANDS
 // ----------------------------------------------------
-router.get('/brands', ...catalogueAuth, (_req, res: Response) => {
-  res.json({ success: true, data: agecoStore.brands });
+router.get('/brands', ...catalogueAuth, (req: Request, res: Response) => {
+  const { audienceId } = req.query;
+  let list = agecoStore.brands;
+  if (audienceId) {
+    list = list.filter(
+      (b) =>
+        b.audiences?.includes(String(audienceId)) ||
+        (audienceId === 'aud-consumer' && (b.audienceType === 'CONSUMER' || b.audienceType === 'BOTH')) ||
+        (audienceId === 'aud-professional' && (b.audienceType === 'PROFESSIONAL' || b.audienceType === 'BOTH'))
+    );
+  }
+  res.json({ success: true, data: list });
 });
 
 router.post('/brands', ...catalogueAuth, (req: AuthenticatedRequest, res: Response): void => {
-  const { name, code, website, tier = 'PARTNER', description, active = true, logo } = req.body || {};
+  const { name, code, website, tier = 'PARTNER', description, active = true, logo, audienceType = 'CONSUMER', audiences, seoKeywords, metaTitle, metaDescription, canonicalUrl } = req.body || {};
   if (!name || !code) {
     res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Brand name and code are required.' } });
     return;
   }
+  const cleanCode = String(code).toUpperCase();
+  const assignedAudiences: string[] = audiences || (
+    audienceType === 'BOTH'
+      ? ['aud-consumer', 'aud-professional']
+      : audienceType === 'PROFESSIONAL'
+      ? ['aud-professional']
+      : ['aud-consumer']
+  );
+  const generatedKw = generateBrandKeywords({ name, tier, description, audienceType });
+
   const newBrand: Brand = {
     id: `brd-${Date.now().toString().slice(-4)}`,
     name,
-    code: String(code).toUpperCase(),
+    code: cleanCode,
     website: website || '',
     tier: tier as Brand['tier'],
     description: description || '',
+    audienceType: audienceType as Brand['audienceType'],
+    audiences: assignedAudiences,
     active: Boolean(active),
     logo: logo || '/assets/brands/default-brand.svg',
     productCount: 0,
+    seoKeywords: Array.isArray(seoKeywords) && seoKeywords.length > 0 ? seoKeywords : generatedKw,
+    metaTitle: metaTitle || `${name} Authorized Electrical Partner | AGECO`,
+    metaDescription: metaDescription || description || `Official supply, warranty, and datasheets for ${name}.`,
+    canonicalUrl: canonicalUrl || `https://ageco.com.sa/catalogue/brand/${cleanCode.toLowerCase()}`,
   };
   agecoStore.brands.push(newBrand);
   if (req.user) {
-    agecoStore.recordAudit(req.user, 'CREATE', 'CATALOGUE_BRANDS', newBrand.id, `Created brand partner '${newBrand.name}'`);
+    agecoStore.recordAudit(req.user, 'CREATE', 'CATALOGUE_BRANDS', newBrand.id, `Created brand partner '${newBrand.name}' with ${newBrand.seoKeywords.length} SEO keywords`);
   }
   res.status(201).json({ success: true, data: newBrand });
 });
@@ -168,6 +221,20 @@ router.put('/brands/:id', ...catalogueAuth, (req: AuthenticatedRequest, res: Res
     agecoStore.recordAudit(req.user, 'UPDATE', 'CATALOGUE_BRANDS', id, `Updated brand '${updated.name}'`);
   }
   res.json({ success: true, data: updated });
+});
+
+router.delete('/brands/:id', ...catalogueAuth, (req: AuthenticatedRequest, res: Response): void => {
+  const { id } = req.params;
+  const index = agecoStore.brands.findIndex((b) => b.id === id);
+  if (index === -1) {
+    res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Brand not found.' } });
+    return;
+  }
+  const removed = agecoStore.brands.splice(index, 1)[0];
+  if (req.user) {
+    agecoStore.recordAudit(req.user, 'DELETE', 'CATALOGUE_BRANDS', id, `Deleted brand '${removed.name}'`);
+  }
+  res.json({ success: true, data: { message: `Brand '${removed.name}' deleted successfully.` } });
 });
 
 // ----------------------------------------------------

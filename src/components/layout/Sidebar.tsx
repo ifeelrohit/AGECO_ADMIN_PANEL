@@ -7,25 +7,17 @@ import {
   Image,
   Search,
   Users,
-  FileText,
   Settings,
-  Database,
   ChevronDown,
   ChevronRight,
-  Zap,
   FolderTree,
   Tag,
-  Boxes,
-  Compass,
-  Layers,
-  Sparkles,
-  BookOpen,
-  Briefcase,
-  Sliders,
+  Zap,
+  LogOut,
   X,
+  FileText,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.tsx';
-import { ModulePermissionKey } from '../../types/index.ts';
 
 export type NavigationTarget =
   | 'dashboard'
@@ -65,36 +57,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectTab,
   isOpenMobile = false,
   onCloseMobile,
-  enquiriesBadgeCount = 1,
 }) => {
-  const { canAccess, user } = useAuth();
+  const { logout } = useAuth();
 
-  // Accordion states for nested sections
-  const [catalogueExpanded, setCatalogueExpanded] = useState(
-    activeTab.startsWith('catalogue')
+  // Accordion states
+  const [categoriesOpen, setCategoriesOpen] = useState(
+    activeTab.includes('categories') || activeTab.includes('subcategories')
   );
-  const [websiteExpanded, setWebsiteExpanded] = useState(
-    activeTab.startsWith('website')
+  const [productsOpen, setProductsOpen] = useState(
+    activeTab.includes('products') || activeTab.includes('product-types')
   );
 
   const handleSelect = (tab: NavigationTarget) => {
     onSelectTab(tab);
     if (onCloseMobile) onCloseMobile();
   };
-
-  const navItemClass = (isActive: boolean) =>
-    `group flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-xs font-medium transition-all ${
-      isActive
-        ? 'bg-amber-500/10 text-amber-300 font-semibold border-l-2 border-amber-500 shadow-sm'
-        : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
-    }`;
-
-  const subNavItemClass = (isActive: boolean) =>
-    `group flex w-full items-center gap-2 rounded-md py-1.5 pl-7 pr-3 text-xs transition-all ${
-      isActive
-        ? 'text-cyan-300 font-semibold bg-cyan-950/30'
-        : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'
-    }`;
 
   return (
     <>
@@ -107,277 +84,304 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-slate-800/80 bg-[#090e18] transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-[#0A1120] text-slate-300 transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 ${
           isOpenMobile ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Mobile Header Close */}
-        <div className="flex h-16 items-center justify-between border-b border-slate-800 px-4 lg:hidden">
-          <span className="font-heading text-sm font-bold text-white tracking-wide">
-            AGECO NAVIGATION
-          </span>
+        {/* Sidebar Header: AGECO SINCE 1983 Emblem */}
+        <div className="flex h-16 items-center justify-between border-b border-slate-800/60 px-5">
+          <div className="flex items-center gap-2.5">
+            {/* Vector AGECO Logo matching screenshot */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center">
+                <span className="font-heading text-lg font-black tracking-wider text-white">
+                  AGECO
+                </span>
+                {/* Lightning Bolt Circle Badge */}
+                <div className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[#0A1120]">
+                  <Zap className="h-2.5 w-2.5 fill-current text-[#0A1120]" />
+                </div>
+              </div>
+              <span className="text-[9px] font-semibold tracking-widest text-slate-400">
+                — SINCE 1983 —
+              </span>
+            </div>
+          </div>
+
           <button
             onClick={onCloseMobile}
-            className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+            className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white lg:hidden"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Sidebar Nav Items Container */}
-        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
-          {/* Main Navigation Group */}
+        {/* Navigation Sections */}
+        <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-6">
+          {/* OVERVIEW */}
           <div>
-            <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              Overview
+            <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              OVERVIEW
             </p>
-            {canAccess('admin_dashboard') && (
-              <button
-                onClick={() => handleSelect('dashboard')}
-                className={navItemClass(activeTab === 'dashboard')}
-              >
-                <LayoutDashboard className="h-4 w-4 text-slate-400 group-hover:text-amber-400" />
-                <span>Dashboard</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => handleSelect('dashboard')}
+              className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-semibold transition-all ${
+                activeTab === 'dashboard'
+                  ? 'bg-orange-500 text-white shadow-md'
+                  : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+              }`}
+            >
+              <LayoutDashboard
+                className={`h-4 w-4 ${
+                  activeTab === 'dashboard' ? 'text-white' : 'text-slate-400'
+                }`}
+              />
+              <span>Dashboard</span>
+            </button>
           </div>
 
-          {/* Catalogue Group */}
-          {canAccess('catalogue_management') && (
-            <div>
+          {/* CATALOGUE */}
+          <div>
+            <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              CATALOGUE
+            </p>
+            <div className="space-y-1">
+              {/* Brands */}
               <button
-                onClick={() => setCatalogueExpanded(!catalogueExpanded)}
-                className="flex w-full items-center justify-between rounded-md px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-300 transition"
+                type="button"
+                onClick={() => handleSelect('catalogue-brands')}
+                className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition ${
+                  activeTab === 'catalogue-brands'
+                    ? 'bg-orange-500 text-white shadow'
+                    : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                }`}
               >
-                <span className="flex items-center gap-1.5">
-                  <Box className="h-3.5 w-3.5 text-slate-400" />
-                  Catalogue
-                </span>
-                {catalogueExpanded ? (
-                  <ChevronDown className="h-3 w-3 text-slate-500" />
-                ) : (
-                  <ChevronRight className="h-3 w-3 text-slate-500" />
-                )}
+                <Tag className="h-3.5 w-3.5 text-slate-400" />
+                <span>Brands</span>
               </button>
 
-              {catalogueExpanded && (
-                <div className="mt-1 space-y-0.5 border-l border-slate-800/80 ml-3 pl-1">
-                  <button
-                    onClick={() => handleSelect('catalogue-audiences')}
-                    className={subNavItemClass(activeTab === 'catalogue-audiences')}
-                  >
-                    <Compass className="h-3.5 w-3.5 text-slate-500" />
-                    <span>Audiences</span>
-                  </button>
-                  <button
-                    onClick={() => handleSelect('catalogue-categories')}
-                    className={subNavItemClass(activeTab === 'catalogue-categories')}
-                  >
-                    <FolderTree className="h-3.5 w-3.5 text-slate-500" />
+              {/* Categories */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCategoriesOpen(!categoriesOpen);
+                    handleSelect('catalogue-categories');
+                  }}
+                  className={`w-full flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium transition ${
+                    activeTab === 'catalogue-categories' || activeTab === 'catalogue-subcategories'
+                      ? 'bg-slate-800 text-white'
+                      : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <FolderTree className="h-3.5 w-3.5 text-slate-400" />
                     <span>Categories</span>
-                  </button>
-                  <button
-                    onClick={() => handleSelect('catalogue-subcategories')}
-                    className={subNavItemClass(activeTab === 'catalogue-subcategories')}
-                  >
-                    <Layers className="h-3.5 w-3.5 text-slate-500" />
-                    <span>Subcategories</span>
-                  </button>
-                  <button
-                    onClick={() => handleSelect('catalogue-brands')}
-                    className={subNavItemClass(activeTab === 'catalogue-brands')}
-                  >
-                    <Tag className="h-3.5 w-3.5 text-slate-500" />
-                    <span>Brands</span>
-                  </button>
-                  <button
-                    onClick={() => handleSelect('catalogue-product-types')}
-                    className={subNavItemClass(activeTab === 'catalogue-product-types')}
-                  >
-                    <Boxes className="h-3.5 w-3.5 text-slate-500" />
-                    <span>Product Types</span>
-                  </button>
-                  <button
-                    onClick={() => handleSelect('catalogue-products')}
-                    className={subNavItemClass(activeTab === 'catalogue-products')}
-                  >
-                    <Zap className="h-3.5 w-3.5 text-amber-400" />
-                    <span className="font-semibold text-slate-200">Products</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                  </div>
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 text-slate-400 transition-transform ${
+                      categoriesOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
 
-          {/* Website Management Group */}
-          {canAccess('website_content') && (
-            <div>
-              <button
-                onClick={() => setWebsiteExpanded(!websiteExpanded)}
-                className="flex w-full items-center justify-between rounded-md px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-300 transition"
-              >
-                <span className="flex items-center gap-1.5">
-                  <Globe className="h-3.5 w-3.5 text-slate-400" />
-                  Website
-                </span>
-                {websiteExpanded ? (
-                  <ChevronDown className="h-3 w-3 text-slate-500" />
-                ) : (
-                  <ChevronRight className="h-3 w-3 text-slate-500" />
+                {categoriesOpen && (
+                  <div className="ml-5 mt-1 space-y-0.5 border-l border-slate-800 pl-3">
+                    <button
+                      type="button"
+                      onClick={() => handleSelect('catalogue-categories')}
+                      className={`block w-full py-1 text-left text-xs ${
+                        activeTab === 'catalogue-categories'
+                          ? 'text-orange-400 font-semibold'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      All Categories
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelect('catalogue-subcategories')}
+                      className={`block w-full py-1 text-left text-xs ${
+                        activeTab === 'catalogue-subcategories'
+                          ? 'text-orange-400 font-semibold'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Subcategories
+                    </button>
+                  </div>
                 )}
-              </button>
+              </div>
 
-              {websiteExpanded && (
-                <div className="mt-1 space-y-0.5 border-l border-slate-800/80 ml-3 pl-1">
-                  <button
-                    onClick={() => handleSelect('website-homepage')}
-                    className={subNavItemClass(activeTab === 'website-homepage')}
-                  >
-                    <Sparkles className="h-3.5 w-3.5 text-slate-500" />
-                    <span>Homepage</span>
-                  </button>
-                  <button
-                    onClick={() => handleSelect('website-solutions')}
-                    className={subNavItemClass(activeTab === 'website-solutions')}
-                  >
-                    <Zap className="h-3.5 w-3.5 text-slate-500" />
-                    <span>Solutions</span>
-                  </button>
-                  <button
-                    onClick={() => handleSelect('website-industries')}
-                    className={subNavItemClass(activeTab === 'website-industries')}
-                  >
-                    <Briefcase className="h-3.5 w-3.5 text-slate-500" />
-                    <span>Industries</span>
-                  </button>
-                  <button
-                    onClick={() => handleSelect('website-stories')}
-                    className={subNavItemClass(activeTab === 'website-stories')}
-                  >
-                    <BookOpen className="h-3.5 w-3.5 text-slate-500" />
-                    <span>Stories</span>
-                  </button>
-                  <button
-                    onClick={() => handleSelect('website-projects')}
-                    className={subNavItemClass(activeTab === 'website-projects')}
-                  >
-                    <Box className="h-3.5 w-3.5 text-slate-500" />
-                    <span>Projects</span>
-                  </button>
-                  <button
-                    onClick={() => handleSelect('website-content')}
-                    className={subNavItemClass(activeTab === 'website-content')}
-                  >
-                    <Sliders className="h-3.5 w-3.5 text-slate-500" />
-                    <span>Website Content</span>
-                  </button>
-                </div>
-              )}
+              {/* Products */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProductsOpen(!productsOpen);
+                    handleSelect('catalogue-products');
+                  }}
+                  className={`w-full flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium transition ${
+                    activeTab === 'catalogue-products' || activeTab === 'catalogue-product-types'
+                      ? 'bg-slate-800 text-white'
+                      : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Box className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Products</span>
+                  </div>
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 text-slate-400 transition-transform ${
+                      productsOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+
+                {productsOpen && (
+                  <div className="ml-5 mt-1 space-y-0.5 border-l border-slate-800 pl-3">
+                    <button
+                      type="button"
+                      onClick={() => handleSelect('catalogue-products')}
+                      className={`block w-full py-1 text-left text-xs ${
+                        activeTab === 'catalogue-products'
+                          ? 'text-orange-400 font-semibold'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      All Products
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelect('catalogue-product-types')}
+                      className={`block w-full py-1 text-left text-xs ${
+                        activeTab === 'catalogue-product-types'
+                          ? 'text-orange-400 font-semibold'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Product Types
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-          )}
+          </div>
 
-          {/* Operations & Communications Group */}
+          {/* OPERATIONS */}
           <div>
-            <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              Operations
+            <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              OPERATIONS
             </p>
             <div className="space-y-1">
-              {canAccess('enquiries') && (
-                <button
-                  onClick={() => handleSelect('enquiries')}
-                  className={navItemClass(activeTab === 'enquiries')}
-                >
-                  <Inbox className="h-4 w-4 text-slate-400 group-hover:text-amber-400" />
-                  <span className="flex-1 text-left">Enquiries & RFQs</span>
-                  {enquiriesBadgeCount > 0 && (
-                    <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300">
-                      {enquiriesBadgeCount}
-                    </span>
-                  )}
-                </button>
-              )}
-
               <button
-                onClick={() => handleSelect('media')}
-                className={navItemClass(activeTab === 'media')}
+                type="button"
+                onClick={() => handleSelect('enquiries')}
+                className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition ${
+                  activeTab === 'enquiries'
+                    ? 'bg-orange-500 text-white shadow'
+                    : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                }`}
               >
-                <Image className="h-4 w-4 text-slate-400 group-hover:text-amber-400" />
-                <span>Media & CAD</span>
+                <Inbox className="h-3.5 w-3.5 text-slate-400" />
+                <span>Enquiries</span>
               </button>
 
               <button
-                onClick={() => handleSelect('seo')}
-                className={navItemClass(activeTab === 'seo')}
+                type="button"
+                onClick={() => handleSelect('users')}
+                className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition ${
+                  activeTab === 'users'
+                    ? 'bg-orange-500 text-white shadow'
+                    : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                }`}
               >
-                <Search className="h-4 w-4 text-slate-400 group-hover:text-amber-400" />
-                <span>SEO Directives</span>
+                <Users className="h-3.5 w-3.5 text-slate-400" />
+                <span>Users & Roles</span>
               </button>
             </div>
           </div>
 
-          {/* Administration & Diagnostics (Restricted by Role Matrix) */}
+          {/* WEBSITE */}
           <div>
-            <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              Administration
+            <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              WEBSITE
             </p>
             <div className="space-y-1">
-              {canAccess('user_management') && (
-                <button
-                  onClick={() => handleSelect('users')}
-                  className={navItemClass(activeTab === 'users')}
-                >
-                  <Users className="h-4 w-4 text-slate-400 group-hover:text-amber-400" />
-                  <span>User Management</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => handleSelect('website-content')}
+                className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition ${
+                  activeTab.startsWith('website')
+                    ? 'bg-orange-500 text-white shadow'
+                    : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                }`}
+              >
+                <FileText className="h-3.5 w-3.5 text-slate-400" />
+                <span>Website Content</span>
+              </button>
 
-              {canAccess('audit_logs') && (
-                <button
-                  onClick={() => handleSelect('audit-logs')}
-                  className={navItemClass(activeTab === 'audit-logs')}
-                >
-                  <FileText className="h-4 w-4 text-slate-400 group-hover:text-amber-400" />
-                  <span>Audit Logs</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => handleSelect('media')}
+                className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition ${
+                  activeTab === 'media'
+                    ? 'bg-orange-500 text-white shadow'
+                    : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                }`}
+              >
+                <Image className="h-3.5 w-3.5 text-slate-400" />
+                <span>Media Library</span>
+              </button>
 
-              {canAccess('system_settings') && (
-                <button
-                  onClick={() => handleSelect('settings')}
-                  className={navItemClass(activeTab === 'settings')}
-                >
-                  <Settings className="h-4 w-4 text-slate-400 group-hover:text-amber-400" />
-                  <span>System Settings</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => handleSelect('seo')}
+                className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition ${
+                  activeTab === 'seo'
+                    ? 'bg-orange-500 text-white shadow'
+                    : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                }`}
+              >
+                <Search className="h-3.5 w-3.5 text-slate-400" />
+                <span>SEO</span>
+              </button>
+            </div>
+          </div>
 
-              {canAccess('database_diagnostics') && (
-                <button
-                  onClick={() => handleSelect('diagnostics')}
-                  className={navItemClass(activeTab === 'diagnostics')}
-                >
-                  <Database className="h-4 w-4 text-slate-400 group-hover:text-cyan-400" />
-                  <span className="flex-1 text-left">Database Diagnostics</span>
-                  <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-mono text-cyan-300">
-                    PG
-                  </span>
-                </button>
-              )}
+          {/* SYSTEM */}
+          <div>
+            <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              SYSTEM
+            </p>
+            <div className="space-y-1">
+              <button
+                type="button"
+                onClick={() => handleSelect('settings')}
+                className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition ${
+                  activeTab === 'settings'
+                    ? 'bg-orange-500 text-white shadow'
+                    : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                }`}
+              >
+                <Settings className="h-3.5 w-3.5 text-slate-400" />
+                <span>Settings</span>
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Sidebar Footer: Enterprise Environment Stamp */}
-        <div className="border-t border-slate-800/80 p-3 bg-slate-950/40">
-          <div className="rounded border border-slate-800/60 bg-slate-900/40 p-2 text-[11px]">
-            <div className="flex items-center justify-between text-slate-400 font-mono">
-              <span>ADP NODE</span>
-              <span className="text-emerald-400">ONLINE</span>
-            </div>
-            <p className="mt-1 text-[10px] text-slate-500 truncate">
-              Auth: Bearer JWT ({user?.role})
-            </p>
-          </div>
+        {/* Sidebar Footer: Clean Logout Button matching screenshot */}
+        <div className="border-t border-slate-800/80 p-3">
+          <button
+            type="button"
+            onClick={() => logout()}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition"
+          >
+            <LogOut className="h-4 w-4 text-slate-400" />
+            <span>Logout</span>
+          </button>
         </div>
       </aside>
     </>

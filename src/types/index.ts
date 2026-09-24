@@ -7,31 +7,42 @@ export type UserRole =
 
 export interface User {
   id: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
+  name?: string;
   email: string;
   role: UserRole;
   status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
-  name?: string;
+  department?: string;
+  twoFactorEnabled?: boolean;
+  avatarUrl?: string;
   lastLoginAt?: string;
   createdAt?: string;
   updatedAt?: string;
 }
 
 export interface CreateUserPayload {
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
+  name?: string;
   email: string;
   role: UserRole;
-  status: 'ACTIVE' | 'INACTIVE';
-  password: string;
+  department?: string;
+  status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  password?: string;
+  twoFactorEnabled?: boolean;
 }
 
 export interface UpdateUserPayload {
   firstName?: string;
   lastName?: string;
+  name?: string;
+  email?: string;
   role?: UserRole;
-  status?: 'ACTIVE' | 'INACTIVE';
+  department?: string;
+  status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  twoFactorEnabled?: boolean;
+  password?: string;
 }
 
 export interface PasswordResetResponse {
@@ -85,7 +96,13 @@ export interface Brand {
   tier: 'PROPRIETARY' | 'PARTNER' | 'AUTHORIZED_DISTRIBUTOR';
   description: string;
   active: boolean;
+  audienceType?: 'CONSUMER' | 'PROFESSIONAL' | 'BOTH';
+  audiences?: string[];
   productCount?: number;
+  seoKeywords?: string[];
+  metaTitle?: string;
+  metaDescription?: string;
+  canonicalUrl?: string;
 }
 
 export interface Category {
@@ -97,6 +114,10 @@ export interface Category {
   iconName: string;
   order: number;
   active: boolean;
+  seoKeywords?: string[];
+  metaTitle?: string;
+  metaDescription?: string;
+  canonicalUrl?: string;
 }
 
 export interface Subcategory {
@@ -106,6 +127,10 @@ export interface Subcategory {
   categoryId: string;
   description: string;
   active: boolean;
+  seoKeywords?: string[];
+  metaTitle?: string;
+  metaDescription?: string;
+  canonicalUrl?: string;
 }
 
 export interface Audience {
@@ -239,6 +264,9 @@ export interface SeoConfig {
   ogDescription: string;
   sitemapPriority: number;
   indexingDirective: 'INDEX_FOLLOW' | 'NOINDEX_FOLLOW' | 'INDEX_NOFOLLOW';
+  targetType?: 'PAGE' | 'CATEGORY' | 'SUBCATEGORY' | 'BRAND';
+  targetId?: string;
+  targetName?: string;
   updatedAt: string;
 }
 
@@ -258,7 +286,7 @@ export interface AuditLog {
 
 export interface SystemSetting {
   id: string;
-  category: 'GENERAL' | 'SECURITY' | 'INTEGRATION' | 'EMAIL_NOTIFICATIONS';
+  category: 'GENERAL' | 'SECURITY' | 'INTEGRATION' | 'EMAIL_NOTIFICATIONS' | 'APPEARANCE';
   key: string;
   label: string;
   value: string;

@@ -150,8 +150,23 @@ router.patch('/:userId', ...userMgmtAuth, (req: AuthenticatedRequest, res: Respo
     return;
   }
 
-  const { role, status, department, name, twoFactorEnabled } = req.body || {};
+  const { role, status, department, name, firstName, lastName, email, twoFactorEnabled, password } = req.body || {};
 
+  // Check email update
+  if (email && typeof email === 'string' && email.trim() && email.trim().toLowerCase() !== existing.email.toLowerCase()) {
+    const trimmedEmail = email.trim().toLowerCase();
+    const collision = agecoStore.users.find((u) => u.id !== userId && u.email.toLowerCase() === trimmedEmail);
+    if (collision) {
+      res.status(409).json({
+        success: false,
+        error: { code: 'EMAIL_EXISTS', message: 'A user with this email address already exists.' },
+      });
+      return;
+    }
+    existing.email = trimmedEmail;
+  }
+
+  // Check role update
   if (role) {
     const validRoles: UserRole[] = ['SUPER_ADMIN', 'ADMIN', 'EDITOR', 'SALES', 'CONTENT_MANAGER'];
     if (!validRoles.includes(role)) {
@@ -161,13 +176,45 @@ router.patch('/:userId', ...userMgmtAuth, (req: AuthenticatedRequest, res: Respo
       });
       return;
     }
+    if ((role === 'SUPER_ADMIN' || role === 'ADMIN') && req.user?.role !== 'SUPER_ADMIN') {
+      res.status(403).json({
+        success: false,
+        error: { code: 'INSUFFICIENT_PRIVILEGE', message: 'Only SUPER_ADMIN can assign administrative roles.' },
+      });
+      return;
+    }
     existing.role = role;
   }
 
-  if (status) existing.status = status;
-  if (department) existing.department = department;
-  if (name) existing.name = name;
-  if (typeof twoFactorEnabled === 'boolean') existing.twoFactorEnabled = twoFactorEnabled;
+  // Name or firstName + lastName
+  if (name !== undefined && typeof name === 'string') {
+    existing.name = name.trim();
+  } else if (firstName !== undefined || lastName !== undefined) {
+    const combined = `${firstName || ''} ${lastName || ''}`.trim();
+    if (combined) {
+      existing.name = combined;
+    }
+  }
+
+  if (status) {
+    const validStatuses = ['ACTIVE', 'INACTIVE', 'SUSPENDED'];
+    if (validStatuses.includes(status)) {
+      existing.status = status;
+    }
+  }
+
+  if (department !== undefined && typeof department === 'string') {
+    existing.department = department.trim();
+  }
+
+  if (typeof twoFactorEnabled === 'boolean') {
+    existing.twoFactorEnabled = twoFactorEnabled;
+  }
+
+  if (password && typeof password === 'string' && password.trim().length >= 6) {
+    const salt = bcrypt.genSaltSync(10);
+    existing.passwordHash = bcrypt.hashSync(password.trim(), salt);
+  }
 
   if (req.user) {
     agecoStore.recordAudit(
@@ -175,7 +222,7 @@ router.patch('/:userId', ...userMgmtAuth, (req: AuthenticatedRequest, res: Respo
       'UPDATE',
       'USER_MANAGEMENT',
       userId,
-      `Updated user profile for ${existing.email} (Status: ${existing.status}, Role: ${existing.role})`
+      `Updated user profile for ${existing.email} (Status: ${existing.status}, Role: ${existing.role}, Name: ${existing.name})`
     );
   }
 
@@ -184,6 +231,59 @@ router.patch('/:userId', ...userMgmtAuth, (req: AuthenticatedRequest, res: Respo
     success: true,
     message: 'User updated successfully',
     data: safeUser,
+  });
+});
+
+// POST /api/v1/admin/users/:userId/change-password
+router.post('/:userId/change-password', ...userMgmtAuth, (req: AuthenticatedRequest, res: Response): void => {
+  const { userId } = req.params;
+  const { currentPassword, newPassword } = req.body || {};
+
+  const user = agecoStore.users.find((u) => u.id === userId);
+  if (!user) {
+    res.status(404).json({
+      success: false,
+      error: { code: 'USER_NOT_FOUND', message: 'User not found.' },
+    });
+    return;
+  }
+
+  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+    res.status(400).json({
+      success: false,
+      error: { code: 'INVALID_PASSWORD', message: 'New password must be at least 8 characters long.' },
+    });
+    return;
+  }
+
+  // If changing self password and current password provided, verify it
+  if (req.user?.id === userId && currentPassword) {
+    const matches = bcrypt.compareSync(currentPassword, user.passwordHash);
+    if (!matches) {
+      res.status(401).json({
+        success: false,
+        error: { code: 'INVALID_CURRENT_PASSWORD', message: 'Current password does not match.' },
+      });
+      return;
+    }
+  }
+
+  const salt = bcrypt.genSaltSync(10);
+  user.passwordHash = bcrypt.hashSync(newPassword, salt);
+
+  if (req.user) {
+    agecoStore.recordAudit(
+      req.user,
+      'UPDATE',
+      'USER_MANAGEMENT',
+      userId,
+      `Password changed for ${user.email}`
+    );
+  }
+
+  res.json({
+    success: true,
+    message: 'Password updated successfully.',
   });
 });
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext.tsx';
+import { ThemeProvider } from './context/ThemeContext.tsx';
 import { Header } from './components/layout/Header.tsx';
 import { Sidebar, NavigationTarget } from './components/layout/Sidebar.tsx';
 import { LoginView } from './views/auth/LoginView.tsx';
@@ -59,25 +60,25 @@ const AdminPanelApp: React.FC = () => {
         currentSection = 'Dashboard';
         break;
       case 'enquiries':
-        currentSection = 'Enquiries & RFQs';
+        currentSection = 'Enquiries';
         break;
       case 'media':
-        currentSection = 'Media & CAD';
+        currentSection = 'Media Library';
         break;
       case 'seo':
-        currentSection = 'SEO Directives';
+        currentSection = 'SEO';
         break;
       case 'users':
-        currentSection = 'User Management';
+        currentSection = 'Users & Roles';
         break;
       case 'audit-logs':
         currentSection = 'Audit Logs';
         break;
       case 'settings':
-        currentSection = 'System Settings';
+        currentSection = 'Settings';
         break;
       case 'diagnostics':
-        currentSection = 'Database Diagnostics';
+        currentSection = 'Diagnostics';
         break;
     }
   }
@@ -92,7 +93,7 @@ const AdminPanelApp: React.FC = () => {
         return <ProductsView />;
       case 'catalogue-categories':
       case 'catalogue-subcategories':
-        return <CategoriesView />;
+        return <CategoriesView initialMode={activeTab === 'catalogue-subcategories' ? 'subcategories' : 'categories'} />;
       case 'catalogue-brands':
         return <BrandsView />;
       case 'catalogue-audiences':
@@ -118,13 +119,13 @@ const AdminPanelApp: React.FC = () => {
       case 'enquiries':
         if (!canAccess('enquiries')) {
           return (
-            <div className="rounded-xl border border-rose-500/30 bg-rose-500/5 p-8 text-center">
-              <ShieldAlert className="mx-auto h-12 w-12 text-rose-400" />
-              <h2 className="mt-4 font-heading text-lg font-bold text-white">
-                Authorization Restricted
+            <div className="rounded-xl border border-rose-200 bg-white p-8 text-center shadow-sm">
+              <ShieldAlert className="mx-auto h-12 w-12 text-rose-500" />
+              <h2 className="mt-4 text-base font-bold text-slate-900">
+                Access Restricted
               </h2>
-              <p className="mt-1 text-xs text-slate-400 max-w-md mx-auto">
-                Tender inquiries and commercial RFQs are accessible only to SUPER_ADMIN, ADMIN, and SALES roles.
+              <p className="mt-1 text-xs text-slate-500 max-w-md mx-auto">
+                Enquiries are accessible only to authorized roles.
               </p>
             </div>
           );
@@ -156,7 +157,7 @@ const AdminPanelApp: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#070b13] text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+    <div className="min-h-screen bg-[#F4F6F9] dark:bg-[#070B14] text-slate-800 dark:text-slate-100 flex flex-col font-sans selection:bg-orange-500 selection:text-white transition-colors duration-200">
       <Header
         currentSection={currentSection}
         currentSubpage={currentSubpage}
@@ -172,7 +173,7 @@ const AdminPanelApp: React.FC = () => {
           enquiriesBadgeCount={1}
         />
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-[#070b13]">
+        <main className="flex-1 overflow-y-auto bg-[#F4F6F9] dark:bg-[#070B14] p-6 lg:p-8 transition-colors duration-200">
           <div className="mx-auto max-w-7xl">{renderContent()}</div>
         </main>
       </div>
@@ -182,8 +183,10 @@ const AdminPanelApp: React.FC = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AdminPanelApp />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AdminPanelApp />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

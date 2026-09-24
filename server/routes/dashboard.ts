@@ -49,6 +49,8 @@ router.get('/stats', ...dashboardAuth, (req: AuthenticatedRequest, res: Response
         activeSolutions,
         totalProjects,
         totalUsers,
+        totalMediaAssets: agecoStore.mediaItems.length,
+        totalHeroSlides: agecoStore.heroSlides.length,
         systemHealth: 'HEALTHY',
         databaseCacheRatio: '99.4%',
       },
