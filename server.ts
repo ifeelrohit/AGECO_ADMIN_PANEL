@@ -15,7 +15,8 @@ import dashboardRouter from './server/routes/dashboard.ts';
 
 async function startServer() {
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+  // Dev server and backend must run on port 3000 behind Nginx (port 8080)
+  const PORT = 3000;
 
   // CORS middleware for iframe and cross-origin compatibility
   app.use((req, res, next) => {

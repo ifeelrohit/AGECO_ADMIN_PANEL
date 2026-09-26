@@ -1,7 +1,7 @@
-import { Router, Request, Response } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { agecoStore } from '../data/store.ts';
-import { authenticateToken, authorizeRoles, AuthenticatedRequest } from '../middleware/auth.ts';
-import { SeoConfig } from '../types.ts';
+import { authenticateToken, authorizeRoles, type AuthenticatedRequest } from '../middleware/auth.ts';
+import type { SeoConfig } from '../types.ts';
 
 const router = Router();
 

@@ -1,7 +1,60 @@
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { Enquiry } from '../types/index.ts';
+
+/**
+ * Safely create a jsPDF instance across ESM/CommonJS bundlers
+ */
+function createJsPdfDoc(options: any): any {
+  const Constructor: any =
+    (typeof jsPDF === 'function' ? jsPDF : null) ||
+    ((jsPDF as any)?.jsPDF) ||
+    ((jsPDF as any)?.default) ||
+    (window as any)?.jspdf?.jsPDF;
+
+  if (typeof Constructor !== 'function') {
+    throw new Error('PDF generator library could not be initialized.');
+  }
+
+  return new Constructor(options);
+}
+
+/**
+ * Safely invoke jspdf-autotable
+ */
+function runAutoTable(doc: any, options: any): void {
+  try {
+    if (typeof autoTable === 'function') {
+      autoTable(doc, options);
+    } else if (typeof (autoTable as any)?.default === 'function') {
+      (autoTable as any).default(doc, options);
+    } else if (typeof doc.autoTable === 'function') {
+      doc.autoTable(options);
+    } else {
+      console.warn('AutoTable plugin is not accessible on doc');
+    }
+  } catch (err) {
+    console.error('Error executing autoTable in PDF generation:', err);
+  }
+}
+
+/**
+ * Safely trigger a file download from binary or blob
+ */
+function triggerFileDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.style.display = 'none';
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 300);
+}
 
 /**
  * Format enquiry type into human readable string
@@ -65,7 +118,6 @@ export function exportEnquiriesToExcel(
   filename = `Ageco_Enquiries_${new Date().toISOString().split('T')[0]}.xlsx`
 ): void {
   if (!enquiries || enquiries.length === 0) {
-    alert('No enquiry records available to export.');
     return;
   }
 
@@ -122,7 +174,16 @@ export function exportEnquiriesToExcel(
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Enquiries');
-  XLSX.writeFile(workbook, filename);
+
+  try {
+    XLSX.writeFile(workbook, filename);
+  } catch {
+    const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    triggerFileDownload(blob, filename);
+  }
 }
 
 /**
@@ -133,12 +194,11 @@ export function exportEnquiriesToPdf(
   filterContext?: { query?: string; status?: string }
 ): void {
   if (!enquiries || enquiries.length === 0) {
-    alert('No enquiry records available to export.');
     return;
   }
 
   // Create A4 Landscape PDF
-  const doc = new jsPDF({
+  const doc = createJsPdfDoc({
     orientation: 'landscape',
     unit: 'pt',
     format: 'a4',
@@ -227,7 +287,7 @@ export function exportEnquiriesToPdf(
     item.assignedTo || 'Unassigned',
   ]);
 
-  autoTable(doc, {
+  runAutoTable(doc, {
     startY: 85,
     head: [tableHeaders],
     body: tableData,
@@ -260,7 +320,7 @@ export function exportEnquiriesToPdf(
       7: { cellWidth: 75, fontStyle: 'bold' }, // Status
       8: { cellWidth: 95 }, // Assigned
     },
-    didDrawPage: (data) => {
+    didDrawPage: (data: any) => {
       // Footer
       const str = `Page ${data.pageNumber}`;
       doc.setFontSize(8);
@@ -280,7 +340,12 @@ export function exportEnquiriesToPdf(
   });
 
   const filename = `Ageco_Enquiries_Report_${new Date().toISOString().split('T')[0]}.pdf`;
-  doc.save(filename);
+  try {
+    doc.save(filename);
+  } catch {
+    const blob = doc.output('blob');
+    triggerFileDownload(blob, filename);
+  }
 }
 
 /**
@@ -289,7 +354,7 @@ export function exportEnquiriesToPdf(
 export function exportSingleEnquiryToPdf(enquiry: Enquiry): void {
   if (!enquiry) return;
 
-  const doc = new jsPDF({
+  const doc = createJsPdfDoc({
     orientation: 'portrait',
     unit: 'pt',
     format: 'a4',
@@ -318,7 +383,7 @@ export function exportSingleEnquiryToPdf(enquiry: Enquiry): void {
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(254, 215, 170); // Light orange
-  doc.text(enquiry.referenceNumber, pageWidth - 36, 36, { align: 'right' });
+  doc.text(enquiry.referenceNumber || 'ENQ', pageWidth - 36, 36, { align: 'right' });
 
   // Status & Date Subheader
   let y = 84;
@@ -333,7 +398,7 @@ export function exportSingleEnquiryToPdf(enquiry: Enquiry): void {
 
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 41, 59);
-  doc.text(`Status: ${enquiry.status.replace('_', ' ')}`, pageWidth - 36, y, {
+  doc.text(`Status: ${(enquiry.status || 'NEW').replace('_', ' ')}`, pageWidth - 36, y, {
     align: 'right',
   });
 
@@ -355,17 +420,17 @@ export function exportSingleEnquiryToPdf(enquiry: Enquiry): void {
 
   doc.text(`Company:`, 48, y + 36);
   doc.setFont('helvetica', 'bold');
-  doc.text(enquiry.company, 110, y + 36);
+  doc.text(enquiry.company || '-', 110, y + 36);
 
   doc.setFont('helvetica', 'normal');
   doc.text(`Contact:`, 48, y + 52);
   doc.setFont('helvetica', 'bold');
-  doc.text(enquiry.contactName, 110, y + 52);
+  doc.text(enquiry.contactName || '-', 110, y + 52);
 
   doc.setFont('helvetica', 'normal');
   doc.text(`Email:`, 48, y + 68);
   doc.setFont('helvetica', 'bold');
-  doc.text(enquiry.email, 110, y + 68);
+  doc.text(enquiry.email || '-', 110, y + 68);
 
   // Right column of box 1
   const midX = pageWidth / 2 + 10;
@@ -413,7 +478,7 @@ export function exportSingleEnquiryToPdf(enquiry: Enquiry): void {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 41, 59);
-  doc.text(`Subject: ${enquiry.subject}`, 36, y);
+  doc.text(`Subject: ${enquiry.subject || 'General Inquiry'}`, 36, y);
 
   y += 12;
 
@@ -446,7 +511,7 @@ export function exportSingleEnquiryToPdf(enquiry: Enquiry): void {
     notesData.push(['-', '-', 'System', 'No internal notes recorded for this enquiry yet.']);
   }
 
-  autoTable(doc, {
+  runAutoTable(doc, {
     startY: y + 8,
     head: [['#', 'Date & Time', 'Team Member', 'Note / Action Log']],
     body: notesData,
@@ -467,12 +532,12 @@ export function exportSingleEnquiryToPdf(enquiry: Enquiry): void {
       2: { cellWidth: 90, fontStyle: 'bold' },
       3: { cellWidth: 'auto' },
     },
-    didDrawPage: (data) => {
+    didDrawPage: (data: any) => {
       // Footer
       doc.setFontSize(8);
       doc.setTextColor(148, 163, 184);
       doc.text(
-        `AGECO INDUSTRIAL SYSTEMS - ENQUIRY ${enquiry.referenceNumber}`,
+        `AGECO INDUSTRIAL SYSTEMS - ENQUIRY ${enquiry.referenceNumber || ''}`,
         36,
         doc.internal.pageSize.getHeight() - 18
       );
@@ -485,5 +550,11 @@ export function exportSingleEnquiryToPdf(enquiry: Enquiry): void {
     },
   });
 
-  doc.save(`Ageco_Enquiry_${enquiry.referenceNumber}.pdf`);
+  const filename = `Ageco_Enquiry_${enquiry.referenceNumber || 'Dossier'}.pdf`;
+  try {
+    doc.save(filename);
+  } catch {
+    const blob = doc.output('blob');
+    triggerFileDownload(blob, filename);
+  }
 }

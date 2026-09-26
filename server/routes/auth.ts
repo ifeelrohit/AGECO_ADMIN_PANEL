@@ -1,7 +1,7 @@
-import { Router, Response } from 'express';
+import { Router, type Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { agecoStore } from '../data/store.ts';
-import { generateToken, authenticateToken, AuthenticatedRequest } from '../middleware/auth.ts';
+import { generateToken, authenticateToken, type AuthenticatedRequest } from '../middleware/auth.ts';
 
 const router = Router();
 

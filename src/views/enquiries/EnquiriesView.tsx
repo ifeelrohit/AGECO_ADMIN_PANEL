@@ -75,7 +75,7 @@ export const EnquiriesView: React.FC = () => {
 
   const handleStatusChange = async (enquiryId: string, newStatus: Enquiry['status']) => {
     try {
-      const res = await api.put<Enquiry>(`/enquiries/${enquiryId}/status`, {
+      const res = await api.put<Enquiry>(`/enquiries/${enquiryId}`, {
         status: newStatus,
       });
       if (res.success && res.data) {
@@ -85,9 +85,11 @@ export const EnquiriesView: React.FC = () => {
         if (selectedEnquiry?.id === enquiryId) {
           setSelectedEnquiry(res.data);
         }
+        showNotification(`Status updated to ${newStatus.replace('_', ' ')}.`);
       }
     } catch (err) {
       console.error('Failed to change status', err);
+      showNotification('Failed to update enquiry status.');
     }
   };
 
@@ -97,29 +99,43 @@ export const EnquiriesView: React.FC = () => {
 
     setIsSubmittingNote(true);
     try {
-      const res = await api.post<Enquiry>(`/enquiries/${selectedEnquiry.id}/notes`, {
-        text: newNoteText,
+      const res = await api.post<any>(`/enquiries/${selectedEnquiry.id}/notes`, {
+        text: newNoteText.trim(),
       });
       if (res.success && res.data) {
+        // Robustly handle if backend returns either full updated enquiry or note object
+        const isFullEnquiry = Boolean(res.data.referenceNumber && res.data.company);
+        const updatedEnquiry: Enquiry = isFullEnquiry
+          ? (res.data as Enquiry)
+          : {
+              ...selectedEnquiry,
+              internalNotes: [...(selectedEnquiry.internalNotes || []), res.data],
+              updatedAt: new Date().toISOString(),
+            };
+
         setEnquiries((prev) =>
-          prev.map((e) => (e.id === selectedEnquiry.id ? res.data! : e))
+          prev.map((item) => (item.id === selectedEnquiry.id ? updatedEnquiry : item))
         );
-        setSelectedEnquiry(res.data);
+        setSelectedEnquiry(updatedEnquiry);
         setNewNoteText('');
+        showNotification('Internal note added successfully.');
       }
     } catch (err) {
       console.error('Failed to add note', err);
+      showNotification('Failed to add internal note.');
     } finally {
       setIsSubmittingNote(false);
     }
   };
 
   const filteredEnquiries = enquiries.filter((e) => {
+    const q = searchQuery.toLowerCase().trim();
     const matchesQuery =
-      !searchQuery ||
-      e.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.referenceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.contactName.toLowerCase().includes(searchQuery.toLowerCase());
+      !q ||
+      (e.company && e.company.toLowerCase().includes(q)) ||
+      (e.referenceNumber && e.referenceNumber.toLowerCase().includes(q)) ||
+      (e.contactName && e.contactName.toLowerCase().includes(q)) ||
+      (e.subject && e.subject.toLowerCase().includes(q));
     const matchesStatus = !statusFilter || e.status === statusFilter;
     return matchesQuery && matchesStatus;
   });

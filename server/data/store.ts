@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import {
+import type {
   User,
   Product,
   Brand,

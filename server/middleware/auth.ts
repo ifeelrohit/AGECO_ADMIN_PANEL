@@ -1,6 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { UserRole, User } from '../types.ts';
+import type { UserRole, User } from '../types.ts';
 import { agecoStore } from '../data/store.ts';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'ageco-enterprise-jwt-secret-key-2026-production';

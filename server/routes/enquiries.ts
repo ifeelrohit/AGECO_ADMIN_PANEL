@@ -1,7 +1,7 @@
-import { Router, Response } from 'express';
+import { Router, type Response } from 'express';
 import { agecoStore } from '../data/store.ts';
-import { authenticateToken, authorizeRoles, AuthenticatedRequest } from '../middleware/auth.ts';
-import { Enquiry } from '../types.ts';
+import { authenticateToken, authorizeRoles, type AuthenticatedRequest } from '../middleware/auth.ts';
+import type { Enquiry } from '../types.ts';
 
 const router = Router();
 
@@ -47,7 +47,7 @@ router.get('/:id', ...enquiriesAuth, (req, res: Response): void => {
   res.json({ success: true, data: enquiry });
 });
 
-router.put('/:id', ...enquiriesAuth, (req: AuthenticatedRequest, res: Response): void => {
+const updateEnquiryHandler = (req: AuthenticatedRequest, res: Response): void => {
   const { id } = req.params;
   const index = agecoStore.enquiries.findIndex((e) => e.id === id);
   if (index === -1) {
@@ -79,7 +79,10 @@ router.put('/:id', ...enquiriesAuth, (req: AuthenticatedRequest, res: Response):
   }
 
   res.json({ success: true, data: updated });
-});
+};
+
+router.put('/:id', ...enquiriesAuth, updateEnquiryHandler);
+router.put('/:id/status', ...enquiriesAuth, updateEnquiryHandler);
 
 router.post('/:id/notes', ...enquiriesAuth, (req: AuthenticatedRequest, res: Response): void => {
   const { id } = req.params;
@@ -102,6 +105,9 @@ router.post('/:id/notes', ...enquiriesAuth, (req: AuthenticatedRequest, res: Res
     createdAt: new Date().toISOString(),
   };
 
+  if (!enquiry.internalNotes) {
+    enquiry.internalNotes = [];
+  }
   enquiry.internalNotes.push(newNote);
   enquiry.updatedAt = new Date().toISOString();
 
@@ -115,7 +121,8 @@ router.post('/:id/notes', ...enquiriesAuth, (req: AuthenticatedRequest, res: Res
     );
   }
 
-  res.status(201).json({ success: true, data: newNote, enquiry });
+  // Return full enquiry as data so frontend stays synchronized, plus note
+  res.status(201).json({ success: true, data: enquiry, note: newNote });
 });
 
 export default router;

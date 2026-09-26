@@ -1,9 +1,9 @@
-import { Router, Response } from 'express';
+import { Router, type Response } from 'express';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { agecoStore } from '../data/store.ts';
-import { authenticateToken, authorizeRoles, AuthenticatedRequest } from '../middleware/auth.ts';
-import { User, UserRole } from '../types.ts';
+import { authenticateToken, authorizeRoles, type AuthenticatedRequest } from '../middleware/auth.ts';
+import type { User, UserRole } from '../types.ts';
 
 const router = Router();
 
