@@ -16,6 +16,7 @@ import {
   LogOut,
   X,
   FileText,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.tsx';
 
@@ -27,6 +28,7 @@ export type NavigationTarget =
   | 'catalogue-subcategories'
   | 'catalogue-brands'
   | 'catalogue-product-types'
+  | 'catalogue-attributes'
   | 'catalogue-products'
   // Website
   | 'website-homepage'
@@ -262,6 +264,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       }`}
                     >
                       Product Types
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelect('catalogue-attributes')}
+                      className={`block w-full py-1 text-left text-xs ${
+                        activeTab === 'catalogue-attributes'
+                          ? 'text-orange-400 font-semibold'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Product Attributes
                     </button>
                   </div>
                 )}

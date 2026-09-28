@@ -62,27 +62,81 @@ export interface UsersResponseData {
   };
 }
 
+export interface ProductWarranty {
+  period?: string;
+  info?: string;
+  supportInfo?: string;
+}
+
+export interface ProductDocument {
+  id?: string;
+  title: string;
+  url: string;
+  type: 'CAD' | 'PDF' | 'MANUAL' | 'DATASHEET' | 'WARRANTY' | 'BROCHURE';
+}
+
+export type AttributeDataType =
+  | 'SELECT'
+  | 'MULTI_SELECT'
+  | 'TEXT'
+  | 'NUMBER'
+  | 'BOOLEAN'
+  | 'DIMENSION';
+
+export interface AttributeConditionalRule {
+  dependsOnCode: string;
+  operator?: 'EQUALS' | 'NOT_EQUALS' | 'IN' | 'TRUTHY';
+  value: any;
+}
+
+export interface ProductAttribute {
+  id: string;
+  code: string;
+  name: string;
+  dataType: AttributeDataType;
+  unit?: string;
+  allowedValues?: string[];
+  applicableCategoryIds: string[];
+  applicableSubcategoryIds: string[];
+  applicableProductTypeIds?: string[];
+  isRequired: boolean;
+  isFilterable: boolean;
+  isComparable: boolean;
+  showOnCard: boolean;
+  cardOrder?: number;
+  status: 'ACTIVE' | 'INACTIVE';
+  group?: string;
+  description?: string;
+  conditionalRule?: AttributeConditionalRule;
+}
+
 export interface Product {
   id: string;
   sku: string;
   title: string;
+  name?: string;
   slug: string;
-  brandId: string;
+  brandId?: string;
   categoryId: string;
-  subcategoryId: string;
-  audienceId: string;
-  productTypeId: string;
-  shortDescription: string;
-  technicalSummary: string;
+  subcategoryId?: string;
+  audienceId?: string;
+  productTypeId?: string;
+  shortDescription?: string;
+  description?: string;
+  technicalSummary?: string;
+  keyFeatures?: string[];
+  attributes?: Record<string, any>;
   specifications: Record<string, string>;
-  standardCertifications: string[];
+  standardCertifications?: string[];
   voltageRating?: string;
   currentRating?: string;
   ipRating?: string;
   featured: boolean;
   status: 'PUBLISHED' | 'DRAFT' | 'ARCHIVED';
   mainImage: string;
-  documents: { title: string; url: string; type: 'CAD' | 'PDF' | 'MANUAL' }[];
+  additionalImages?: string[];
+  warranty?: ProductWarranty;
+  documents: ProductDocument[];
   updatedAt: string;
   createdAt: string;
 }
@@ -149,6 +203,8 @@ export interface ProductType {
   description: string;
   requiresCustomEngineering: boolean;
   active: boolean;
+  subcategoryId?: string;
+  categoryId?: string;
 }
 
 export interface Enquiry {

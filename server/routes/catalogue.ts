@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { agecoStore } from '../data/store.ts';
 import { authenticateToken, authorizeRoles, type AuthenticatedRequest } from '../middleware/auth.ts';
-import type { Product, Brand, Category, Subcategory, Audience, ProductType } from '../types.ts';
+import type { Product, Brand, Category, Subcategory, Audience, ProductType, ProductAttribute } from '../types.ts';
 import { generateCategoryKeywords, generateSubcategoryKeywords, generateBrandKeywords } from './seo.ts';
 
 const router = Router();
@@ -240,12 +240,21 @@ router.delete('/brands/:id', ...catalogueAuth, (req: AuthenticatedRequest, res: 
 // ----------------------------------------------------
 // PRODUCT TYPES
 // ----------------------------------------------------
-router.get('/product-types', ...catalogueAuth, (_req, res: Response) => {
-  res.json({ success: true, data: agecoStore.productTypes });
+router.get('/product-types', ...catalogueAuth, (req: Request, res: Response) => {
+  const { categoryId, subcategoryId } = req.query;
+  let list = agecoStore.productTypes;
+  if (subcategoryId) {
+    const specific = list.filter((pt) => pt.subcategoryId === subcategoryId);
+    list = specific.length > 0 ? specific : list.filter((pt) => !pt.subcategoryId && !pt.categoryId);
+  } else if (categoryId) {
+    const specific = list.filter((pt) => pt.categoryId === categoryId);
+    list = specific.length > 0 ? specific : list.filter((pt) => !pt.subcategoryId && !pt.categoryId);
+  }
+  res.json({ success: true, data: list });
 });
 
 router.post('/product-types', ...catalogueAuth, (req: AuthenticatedRequest, res: Response): void => {
-  const { name, code, description, requiresCustomEngineering = false, active = true } = req.body || {};
+  const { name, code, description, subcategoryId, categoryId, requiresCustomEngineering = false, active = true } = req.body || {};
   if (!name || !code) {
     res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Name and code are required.' } });
     return;
@@ -255,6 +264,8 @@ router.post('/product-types', ...catalogueAuth, (req: AuthenticatedRequest, res:
     name,
     code: String(code).toUpperCase(),
     description: description || '',
+    subcategoryId,
+    categoryId,
     requiresCustomEngineering: Boolean(requiresCustomEngineering),
     active: Boolean(active),
   };
@@ -266,14 +277,205 @@ router.post('/product-types', ...catalogueAuth, (req: AuthenticatedRequest, res:
 });
 
 // ----------------------------------------------------
+// PRODUCT ATTRIBUTES
+// ----------------------------------------------------
+router.get('/attributes', ...catalogueAuth, (req: Request, res: Response) => {
+  const { categoryId, subcategoryId, productTypeId, status, search, cardOnly } = req.query;
+  let list = agecoStore.productAttributes;
+
+  if (categoryId) {
+    list = list.filter((a) => a.applicableCategoryIds.includes(String(categoryId)));
+  }
+  if (subcategoryId) {
+    list = list.filter((a) => a.applicableSubcategoryIds.includes(String(subcategoryId)));
+  }
+  if (productTypeId) {
+    list = list.filter(
+      (a) =>
+        !a.applicableProductTypeIds ||
+        a.applicableProductTypeIds.length === 0 ||
+        a.applicableProductTypeIds.includes(String(productTypeId))
+    );
+  }
+  if (status) {
+    list = list.filter((a) => a.status === status);
+  }
+  if (cardOnly === 'true' || cardOnly === '1') {
+    list = list.filter((a) => a.showOnCard);
+  }
+  if (search) {
+    const q = String(search).toLowerCase();
+    list = list.filter(
+      (a) =>
+        a.name.toLowerCase().includes(q) ||
+        a.code.toLowerCase().includes(q) ||
+        (a.group && a.group.toLowerCase().includes(q))
+    );
+  }
+
+  res.json({ success: true, data: list, total: list.length });
+});
+
+router.get('/attributes/:id', ...catalogueAuth, (req: Request, res: Response): void => {
+  const attr = agecoStore.productAttributes.find((a) => a.id === req.params.id);
+  if (!attr) {
+    res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Attribute not found.' } });
+    return;
+  }
+  res.json({ success: true, data: attr });
+});
+
+router.post('/attributes', ...catalogueAuth, (req: AuthenticatedRequest, res: Response): void => {
+  const {
+    name,
+    code,
+    dataType,
+    unit,
+    allowedValues,
+    applicableCategoryIds = ['cat-c-bath'],
+    applicableSubcategoryIds = [],
+    applicableProductTypeIds,
+    isRequired = false,
+    isFilterable = true,
+    isComparable = true,
+    showOnCard = false,
+    cardOrder,
+    status = 'ACTIVE',
+    group = 'General',
+    description,
+    conditionalRule,
+  } = req.body || {};
+
+  if (!name || !code || !dataType) {
+    res.status(400).json({
+      success: false,
+      error: { code: 'VALIDATION_ERROR', message: 'Name, code, and dataType are required.' },
+    });
+    return;
+  }
+
+  const cleanCode = String(code).toUpperCase().trim();
+  const newAttr: ProductAttribute = {
+    id: `attr-${Date.now().toString().slice(-6)}`,
+    name,
+    code: cleanCode,
+    dataType,
+    unit: dataType === 'DIMENSION' || dataType === 'NUMBER' ? unit : undefined,
+    allowedValues: (dataType === 'SELECT' || dataType === 'MULTI_SELECT') ? allowedValues || [] : undefined,
+    applicableCategoryIds,
+    applicableSubcategoryIds,
+    applicableProductTypeIds,
+    isRequired: Boolean(isRequired),
+    isFilterable: Boolean(isFilterable),
+    isComparable: Boolean(isComparable),
+    showOnCard: Boolean(showOnCard),
+    cardOrder: cardOrder ? Number(cardOrder) : undefined,
+    status: status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
+    group,
+    description: description || '',
+    conditionalRule: conditionalRule || undefined,
+  };
+
+  agecoStore.productAttributes.push(newAttr);
+  if (req.user) {
+    agecoStore.recordAudit(
+      req.user,
+      'CREATE',
+      'CATALOGUE_ATTRIBUTES',
+      newAttr.id,
+      `Created attribute '${newAttr.name}' (${newAttr.code}) [${newAttr.dataType}]`
+    );
+  }
+  res.status(201).json({ success: true, data: newAttr });
+});
+
+router.put('/attributes/:id', ...catalogueAuth, (req: AuthenticatedRequest, res: Response): void => {
+  const { id } = req.params;
+  const index = agecoStore.productAttributes.findIndex((a) => a.id === id);
+  if (index === -1) {
+    res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Attribute not found.' } });
+    return;
+  }
+
+  const existing = agecoStore.productAttributes[index];
+  const updated: ProductAttribute = {
+    ...existing,
+    ...req.body,
+    id: existing.id,
+  };
+  agecoStore.productAttributes[index] = updated;
+
+  if (req.user) {
+    agecoStore.recordAudit(
+      req.user,
+      'UPDATE',
+      'CATALOGUE_ATTRIBUTES',
+      id,
+      `Updated attribute '${updated.name}' (${updated.code})`
+    );
+  }
+  res.json({ success: true, data: updated });
+});
+
+router.patch('/attributes/:id/status', ...catalogueAuth, (req: AuthenticatedRequest, res: Response): void => {
+  const { id } = req.params;
+  const attr = agecoStore.productAttributes.find((a) => a.id === id);
+  if (!attr) {
+    res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Attribute not found.' } });
+    return;
+  }
+
+  const { status } = req.body || {};
+  attr.status = status || (attr.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE');
+
+  if (req.user) {
+    agecoStore.recordAudit(
+      req.user,
+      'UPDATE',
+      'CATALOGUE_ATTRIBUTES',
+      id,
+      `Toggled attribute status to ${attr.status}`
+    );
+  }
+  res.json({ success: true, data: attr });
+});
+
+router.delete('/attributes/:id', ...catalogueAuth, (req: AuthenticatedRequest, res: Response): void => {
+  const { id } = req.params;
+  const index = agecoStore.productAttributes.findIndex((a) => a.id === id);
+  if (index === -1) {
+    res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Attribute not found.' } });
+    return;
+  }
+
+  const removed = agecoStore.productAttributes.splice(index, 1)[0];
+  if (req.user) {
+    agecoStore.recordAudit(
+      req.user,
+      'DELETE',
+      'CATALOGUE_ATTRIBUTES',
+      id,
+      `Deleted attribute '${removed.name}' (${removed.code})`
+    );
+  }
+  res.json({ success: true, message: `Attribute ${removed.code} removed.` });
+});
+
+// ----------------------------------------------------
 // PRODUCTS (CRUD)
 // ----------------------------------------------------
 router.get('/products', ...catalogueAuth, (req, res: Response) => {
-  const { categoryId, brandId, status, search } = req.query;
+  const { categoryId, subcategoryId, productTypeId, brandId, status, search } = req.query;
   let items = [...agecoStore.products];
 
   if (categoryId) {
     items = items.filter((p) => p.categoryId === categoryId);
+  }
+  if (subcategoryId) {
+    items = items.filter((p) => p.subcategoryId === subcategoryId);
+  }
+  if (productTypeId) {
+    items = items.filter((p) => p.productTypeId === productTypeId);
   }
   if (brandId) {
     items = items.filter((p) => p.brandId === brandId);
@@ -287,7 +489,7 @@ router.get('/products', ...catalogueAuth, (req, res: Response) => {
       (p) =>
         p.title.toLowerCase().includes(q) ||
         p.sku.toLowerCase().includes(q) ||
-        p.shortDescription.toLowerCase().includes(q)
+        (p.shortDescription && p.shortDescription.toLowerCase().includes(q))
     );
   }
 
@@ -311,14 +513,18 @@ router.post('/products', ...catalogueAuth, (req: AuthenticatedRequest, res: Resp
   const {
     sku,
     title,
+    name,
     brandId,
     categoryId,
     subcategoryId,
     audienceId,
     productTypeId,
     shortDescription,
+    description,
     technicalSummary,
-    specifications,
+    keyFeatures = [],
+    attributes = {},
+    specifications = {},
     standardCertifications,
     voltageRating,
     currentRating,
@@ -326,53 +532,92 @@ router.post('/products', ...catalogueAuth, (req: AuthenticatedRequest, res: Resp
     featured = false,
     status = 'PUBLISHED',
     mainImage,
+    additionalImages = [],
+    warranty,
     documents = [],
   } = req.body || {};
 
-  if (!sku || !title || !categoryId || !brandId) {
+  const productTitle = title || name;
+  if (!productTitle || !categoryId) {
     res.status(400).json({
       success: false,
-      error: { code: 'VALIDATION_ERROR', message: 'SKU, Title, Category, and Brand are required fields.' },
+      error: { code: 'VALIDATION_ERROR', message: 'Product Name and Category are required.' },
     });
     return;
   }
 
-  const slug = title
+  const finalSku = sku && String(sku).trim()
+    ? String(sku).trim().toUpperCase()
+    : `AG-${Date.now().toString().slice(-6)}`;
+
+  const slug = productTitle
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
 
+  let finalAudienceId = audienceId;
+  if (!finalAudienceId) {
+    const parentCategory = agecoStore.categories.find((c) => c.id === categoryId);
+    finalAudienceId = parentCategory?.audienceId || 'aud-consumer';
+  }
+
+  // Populate specifications map for backward compatibility from attributes
+  const finalSpecs: Record<string, string> = { ...specifications };
+  if (attributes && typeof attributes === 'object') {
+    Object.entries(attributes).forEach(([key, val]) => {
+      if (val !== undefined && val !== null && val !== '') {
+        const attrDef = agecoStore.productAttributes.find((a) => a.code === key || a.id === key);
+        const label = attrDef?.name || key;
+        const formattedVal = Array.isArray(val)
+          ? val.join(', ')
+          : attrDef?.unit
+          ? `${val} ${attrDef.unit}`
+          : String(val);
+        finalSpecs[label] = formattedVal;
+      }
+    });
+  }
+
   const newProduct: Product = {
-    id: `prd-${Date.now().toString().slice(-4)}`,
-    sku: String(sku).toUpperCase(),
-    title,
+    id: `prd-${Date.now().toString().slice(-6)}`,
+    sku: finalSku,
+    title: productTitle,
+    name: productTitle,
     slug,
-    brandId,
+    brandId: brandId && String(brandId).trim() ? String(brandId) : undefined,
     categoryId,
-    subcategoryId: subcategoryId || '',
-    audienceId: audienceId || '',
-    productTypeId: productTypeId || '',
+    subcategoryId: subcategoryId || undefined,
+    audienceId: finalAudienceId,
+    productTypeId: productTypeId || undefined,
     shortDescription: shortDescription || '',
-    technicalSummary: technicalSummary || '',
-    specifications: specifications || {},
-    standardCertifications: standardCertifications || ['IEC Standards'],
+    description: description || technicalSummary || '',
+    technicalSummary: technicalSummary || description || '',
+    keyFeatures: Array.isArray(keyFeatures) ? keyFeatures : [],
+    attributes: attributes || {},
+    specifications: finalSpecs,
+    standardCertifications: standardCertifications || ['ISO 9001', 'SASO Quality Mark'],
     voltageRating,
     currentRating,
     ipRating,
     featured: Boolean(featured),
     status: status as Product['status'],
-    mainImage: mainImage || 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?w=800&auto=format&fit=crop&q=80',
-    documents,
+    mainImage:
+      mainImage ||
+      'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=800',
+    additionalImages: Array.isArray(additionalImages) ? additionalImages : [],
+    warranty: warranty || undefined,
+    documents: Array.isArray(documents) ? documents : [],
     updatedAt: new Date().toISOString(),
     createdAt: new Date().toISOString(),
   };
 
   agecoStore.products.unshift(newProduct);
 
-  // Update brand product count
-  const brand = agecoStore.brands.find((b) => b.id === brandId);
-  if (brand) {
-    brand.productCount = (brand.productCount || 0) + 1;
+  if (brandId) {
+    const brand = agecoStore.brands.find((b) => b.id === brandId);
+    if (brand) {
+      brand.productCount = (brand.productCount || 0) + 1;
+    }
   }
 
   if (req.user) {
@@ -397,10 +642,33 @@ router.put('/products/:id', ...catalogueAuth, (req: AuthenticatedRequest, res: R
   }
 
   const existing = agecoStore.products[index];
+  const body = req.body || {};
+  const productTitle = body.title || body.name || existing.title;
+
+  const finalSpecs: Record<string, string> = { ...existing.specifications, ...(body.specifications || {}) };
+  if (body.attributes && typeof body.attributes === 'object') {
+    Object.entries(body.attributes).forEach(([key, val]) => {
+      if (val !== undefined && val !== null && val !== '') {
+        const attrDef = agecoStore.productAttributes.find((a) => a.code === key || a.id === key);
+        const label = attrDef?.name || key;
+        const formattedVal = Array.isArray(val)
+          ? val.join(', ')
+          : attrDef?.unit
+          ? `${val} ${attrDef.unit}`
+          : String(val);
+        finalSpecs[label] = formattedVal;
+      }
+    });
+  }
+
   const updated: Product = {
     ...existing,
-    ...req.body,
+    ...body,
     id: existing.id,
+    title: productTitle,
+    name: productTitle,
+    brandId: body.brandId !== undefined ? (body.brandId ? String(body.brandId) : undefined) : existing.brandId,
+    specifications: finalSpecs,
     updatedAt: new Date().toISOString(),
   };
 

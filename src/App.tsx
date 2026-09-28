@@ -10,6 +10,7 @@ import { CategoriesView } from './views/catalogue/CategoriesView.tsx';
 import { BrandsView } from './views/catalogue/BrandsView.tsx';
 import { AudiencesView } from './views/catalogue/AudiencesView.tsx';
 import { ProductTypesView } from './views/catalogue/ProductTypesView.tsx';
+import { ProductAttributesView } from './views/catalogue/ProductAttributesView.tsx';
 import { WebsiteContentView } from './views/website/WebsiteContentView.tsx';
 import { EnquiriesView } from './views/enquiries/EnquiriesView.tsx';
 import { MediaView } from './views/media/MediaView.tsx';
@@ -100,6 +101,8 @@ const AdminPanelApp: React.FC = () => {
         return <AudiencesView />;
       case 'catalogue-product-types':
         return <ProductTypesView />;
+      case 'catalogue-attributes':
+        return <ProductAttributesView />;
 
       // Website
       case 'website-homepage':
